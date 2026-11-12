@@ -28,6 +28,7 @@
   #dm .t{color:#e2d6a6;font-weight:700;margin-bottom:6px}#dm .row{display:flex;gap:6px;align-items:center;margin:5px 0}#dm .lbl{width:58px;color:#8f9682}
   #dm .sub{color:#c8b98a;font-size:12px;margin-top:9px;border-top:1px solid rgba(255,255,255,.08);padding-top:7px}
   #dm input{font:inherit;font-size:13px;width:52px;background:#1d2016;color:#eadfb4;border:1px solid #6b5d36;border-radius:6px;padding:3px 6px}
+  #dm table.st{border-collapse:collapse;margin-top:4px}#dm .st th{font-weight:400;color:#8f9682;font-size:11px;text-align:left;padding:0 4px}#dm .st td{padding:2px 4px 2px 0}#dm .st input{width:48px}
   #dm .k{color:#8f9682;font-size:12px;margin-top:6px;line-height:1.5}
   #net{position:fixed;right:12px;top:12px;background:rgba(10,12,8,.8);color:#c9cdbd;padding:10px 12px;border-radius:8px;font-size:13px;border:1px solid rgba(255,255,255,.07);user-select:none}
   #net .seats{display:flex;gap:6px;margin-top:8px}
@@ -50,7 +51,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div class="t">Hex Board · prototype v0.18</div>
+  <div class="t">Hex Board · prototype v0.19</div>
   <div>Hex: <span id="hov">–</span> &nbsp; Selected: <span id="sel">–</span></div>
   <div id="info" style="color:#e2d6a6"></div>
   <div class="k">Drag: pan · Wheel: zoom · Left-click: select · Esc: deselect</div>
@@ -389,8 +390,8 @@
   const poss = n => n.endsWith('s') ? n + "'" : n + "'s";
   const teamName = t => game.dm ? (t === 'blue' ? 'Heroes' : 'Dungeon Master') : (t === 'blue' ? 'Blue' : 'Red');
   const UNIT_TYPES = {
-    swordsman: { name: 'Swordsman', maxHp: 12, dmg: 3, move: 2, build: buildSwordsman },
-    knight:    { name: 'Knight',    maxHp: 24, dmg: 3, move: 2, build: buildKnight },
+    swordsman: { name: 'Swordsman', maxHp: 12, staMax: 2, manaMax: 2, dmg: 3, move: 2, build: buildSwordsman },
+    knight:    { name: 'Knight',    maxHp: 24, staMax: 2, manaMax: 2, dmg: 3, move: 2, build: buildKnight },
   };
   const meshCache = {};
   const meshFor = (type, team) => meshCache[type + team] || (meshCache[type + team] = UNIT_TYPES[type].build(TEAM[team]));
@@ -401,21 +402,24 @@
   // game = what both players share; units = the same plus local animation fields
   let game = { seq: 0, turn: 'blue', round: 1, dm: false, battle: false, types: {} };
   const typeMax = type => (game.types[type] && game.types[type].maxHp) || UNIT_TYPES[type].maxHp;   // DM can change a unit type's max HP
+  const typeStat = (type, k) => { const t = game.types[type]; return t && typeof t[k] === 'number' ? t[k] : UNIT_TYPES[type][k]; };
   let units = [], floats = [], selUnit = null, afterIdle = null;
 
   function runtimeUnit(s) {
     const type = UNIT_TYPES[s.type] ? s.type : 'swordsman', T = UNIT_TYPES[type];
+    const staMax = s.staMax ?? typeStat(type, 'staMax'), manaMax = s.manaMax ?? typeStat(type, 'manaMax');
     return { name: T.name, maxHp: T.maxHp, dmg: T.dmg, move: T.move, moved: false, attacked: false, ...s, type,
+      staMax, manaMax, sta: s.sta ?? staMax, mana: s.mana ?? manaMax,
       hpShown: s.hp, want: s.face, mesh: meshFor(type, s.team), phase: Math.random() * 6,
       path: null, segT: 0, atk: null, flash: 0, dying: null };
   }
   function freshState(seq) {
     return { seq, turn: 'blue', round: 1, last: null, dm: !!game.dm, battle: false,
-      types: game.types, units: START.map(s => ({ ...s, type: 'swordsman', hp: typeMax('swordsman'), maxHp: typeMax('swordsman'), face: s.team === 'blue' ? Math.PI / 2 : -Math.PI / 2, moved: false, attacked: false })) };
+      types: game.types, units: START.map(s => ({ ...s, type: 'swordsman', hp: typeMax('swordsman'), maxHp: typeMax('swordsman'), sta: typeStat('swordsman', 'staMax'), staMax: typeStat('swordsman', 'staMax'), mana: typeStat('swordsman', 'manaMax'), manaMax: typeStat('swordsman', 'manaMax'), face: s.team === 'blue' ? Math.PI / 2 : -Math.PI / 2, moved: false, attacked: false })) };
   }
   function exportState(last) {
     return { seq: game.seq, turn: game.turn, round: game.round, dm: !!game.dm, battle: !!game.battle, types: game.types, last: last || null,
-      units: units.filter(u => u.dying === null && u.hp > 0).map(u => ({ id: u.id, type: u.type, team: u.team, col: u.col, row: u.row, hp: u.hp, maxHp: u.maxHp,
+      units: units.filter(u => u.dying === null && u.hp > 0).map(u => ({ id: u.id, type: u.type, team: u.team, col: u.col, row: u.row, hp: u.hp, maxHp: u.maxHp, sta: u.sta, staMax: u.staMax, mana: u.mana, manaMax: u.manaMax,
         face: Math.round(u.want * 100) / 100, moved: u.moved, attacked: u.attacked })) };
   }
   function applyState(st) {                       // snap to a shared state (keeps smooth facing/HP bars)
@@ -423,7 +427,7 @@
     units = st.units.map(s => { const o = old.get(s.id);
       if (!o) return runtimeUnit(s);
       if (typeof s.face === 'number') o.want = s.face;          // keep facing in sync with the shared game
-      Object.assign(o, { col: s.col, row: s.row, hp: s.hp, maxHp: s.maxHp || o.maxHp, moved: s.moved, attacked: s.attacked, path: null, atk: null, dying: null, dragPos: null });
+      Object.assign(o, { col: s.col, row: s.row, hp: s.hp, maxHp: s.maxHp || o.maxHp, sta: s.sta ?? o.sta, staMax: s.staMax ?? o.staMax, mana: s.mana ?? o.mana, manaMax: s.manaMax ?? o.manaMax, moved: s.moved, attacked: s.attacked, path: null, atk: null, dying: null, dragPos: null });
       return o; });
     game = { seq: st.seq, turn: st.turn, round: st.round, dm: !!st.dm, battle: !!st.battle, types: (st.types && typeof st.types === 'object') ? st.types : {} };
     updateSeat();
@@ -531,7 +535,7 @@
         if (!u.atk.hit && u.atk.t >= 0.45) {
           u.atk.hit = true; const tg = u.atk.target;
           tg.hp = Math.max(0, tg.hp - u.dmg); tg.flash = 1;
-          const p = upos(tg); addFloat(p.x + 18, p.y - 17.6 * CE * K - 30, `-${u.dmg}`, '#ff5a46', 22);
+          const p = upos(tg); addFloat(p.x + 18, p.y - 17.6 * CE * K - 40, `-${u.dmg}`, '#ff5a46', 22);
           if (tg.hp === 0) tg.dying = 0;
         }
         if (u.atk.t >= 1) u.atk = null;
@@ -576,8 +580,12 @@
   }
   // health bar above the head: one segment per HP
   function drawHealth(u, bx, by) {
-    const w = S * 0.95, h = 6, x = bx - w / 2, y = by - 17.6 * CE * K - 14, f = Math.max(0, u.hpShown / u.maxHp);
-    ctx.fillStyle = 'rgba(8,10,6,0.85)'; ctx.fillRect(x - 1.5, y - 1.5, w + 3, h + 3);
+    const w = S * 0.95, h = 6, x = bx - w / 2, y = by - 17.6 * CE * K - 22, f = Math.max(0, u.hpShown / u.maxHp);
+    const hasTurn = u.team === game.turn && u.dying === null && !winner() && !unitDone(u);
+    const bars = [['sta', 'staMax', '#3f9a4a', '#8fd08f'], ['mana', 'manaMax', '#3a64b8', '#9cb8f0']].filter(b => u[b[1]] > 0);
+    const sh = h / 2, total = h + bars.length * (sh + 2);
+    ctx.fillStyle = 'rgba(8,10,6,0.85)'; ctx.fillRect(x - 1.5, y - 1.5, w + 3, total + 3);
+    // health
     ctx.fillStyle = '#2a1c16'; ctx.fillRect(x, y, w, h);
     const hue = Math.round(120 * f);                       // green -> yellow -> red as HP drops
     ctx.fillStyle = `hsl(${hue},55%,42%)`; ctx.fillRect(x, y, w * f, h);
@@ -585,16 +593,31 @@
     ctx.fillStyle = 'rgba(8,10,6,0.7)';
     const step = Math.max(1, Math.ceil(u.maxHp / 14));         // about 12-14 notches, whatever the max HP
     for (let i = step; i < u.maxHp; i += step) ctx.fillRect(x + w * i / u.maxHp - 0.5, y, 1, h);
+    // stamina (green) then mana (blue): half as thick, colour never changes
+    ctx.font = '700 7px system-ui,sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    bars.forEach(([cur, max, col, txt], i) => {
+      const yy = y + h + 2 + i * (sh + 2), v = Math.max(0, Math.min(u[cur], u[max]));
+      ctx.fillStyle = '#16201a'; ctx.fillRect(x, yy, w, sh);
+      ctx.fillStyle = col; ctx.fillRect(x, yy, w * v / u[max], sh);
+      ctx.fillStyle = 'rgba(8,10,6,0.7)';
+      if (u[max] <= 20) for (let k = 1; k < u[max]; k++) ctx.fillRect(x + w * k / u[max] - 0.5, yy, 1, sh);
+      const right = cur === 'sta', tx = right ? x + w + 4 : x - 5;      // stamina number on the right, mana on the left
+      ctx.textAlign = right ? 'left' : 'right';
+      ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fillText(`${u[cur]}/${u[max]}`, tx + 0.5, yy + sh / 2 + 0.5);
+      ctx.fillStyle = txt; ctx.fillText(`${u[cur]}/${u[max]}`, tx, yy + sh / 2);
+    });
     const tc = TEAM[u.team];
-    ctx.fillStyle = `rgb(${tc[0] + 60},${tc[1] + 60},${tc[2] + 60})`; ctx.fillRect(x - 1.5, y - 1.5, 3, h + 3);   // team tick
-    ctx.font = '600 9px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-    ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillText(`${u.hp}/${u.maxHp}`, bx + 0.6, y - 1.4);
-    ctx.fillStyle = '#e9e4cf'; ctx.fillText(`${u.hp}/${u.maxHp}`, bx, y - 2);
-    if (u.team === game.turn && u.dying === null && !winner() && !unitDone(u)) {   // still has its turn
-      ctx.fillStyle = 'rgba(8,10,6,0.8)'; ctx.fillRect(x - 1.5, y + h + 2, w + 3, 4);
+    ctx.fillStyle = `rgb(${tc[0] + 60},${tc[1] + 60},${tc[2] + 60})`; ctx.fillRect(x - 1.5, y - 1.5, 3, total + 3);   // team tick
+    // turn line sits just above the health bar
+    if (hasTurn) {
+      ctx.fillStyle = 'rgba(8,10,6,0.8)'; ctx.fillRect(x - 1.5, y - 6, w + 3, 4);
       ctx.fillStyle = 'rgba(128,102,46,0.95)';                    // half-bright brownish yellow: "has its turn to spend"
-      ctx.fillRect(x, y + h + 3, u.moved ? w / 2 : w, 2.5);
+      ctx.fillRect(x, y - 5, u.moved ? w / 2 : w, 2.5);
     }
+    ctx.font = '600 9px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    const ty = hasTurn ? y - 7 : y - 2;
+    ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillText(`${u.hp}/${u.maxHp}`, bx + 0.6, ty + 0.6);
+    ctx.fillStyle = '#e9e4cf'; ctx.fillText(`${u.hp}/${u.maxHp}`, bx, ty);
   }
   function turnUnits(dt) {
     for (const u of units) {
@@ -691,7 +714,13 @@
     const nm = clampHp(v), wasFull = u.hp >= u.maxHp;
     u.maxHp = nm; u.hp = wasFull ? nm : Math.min(u.hp, nm); u.hpShown = Math.min(u.hpShown, nm);
   }
-  function setTypeMax(type, v) { game.types = { ...game.types, [type]: { maxHp: clampHp(v) } }; }
+  function setTypeMax(type, v) { game.types = { ...game.types, [type]: { ...(game.types[type] || {}), maxHp: clampHp(v) } }; }
+  const clampRes = v => Math.max(0, Math.min(99, Math.round(Number(v) || 0)));
+  function setTypeStat(type, k, v) { game.types = { ...game.types, [type]: { ...(game.types[type] || {}), [k]: clampRes(v) } }; }
+  function setUnitRes(u, cur, max, v, isMax) {   // same rule as HP: raising the max refills only a unit that was full
+    if (isMax) { const nm = clampRes(v), wasFull = u[cur] >= u[max]; u[max] = nm; u[cur] = wasFull ? nm : Math.min(u[cur], nm); }
+    else u[cur] = Math.min(u[max], clampRes(v));
+  }
   function healHeroes() { if (!dmActive() || busy()) return; for (const u of units) if (u.team === 'blue') u.hp = u.maxHp; commit({ type: 'edit' }); toast('All heroes healed'); }
   let room = null, mode = 'local', mySeat = null, peerList = [], lastRemote = null;
   const netEl = document.getElementById('net');
@@ -821,13 +850,18 @@
         <div class="row"><span class="lbl">Heroes</span>${pb('knight', 'blue', 'Knight')}${pb('swordsman', 'blue', 'Swordsman')}</div>
         <div class="row"><span class="lbl">Enemies</span>${pb('swordsman', 'red', 'Swordsman')}${pb('knight', 'red', 'Knight')}</div>
         <div class="row"><button data-act="heal">❤ Heal all heroes</button></div>
-        <div class="sub">Unit types · max HP for new units</div>
-        <div class="row"><span class="lbl">Knight</span><input type="number" min="1" max="999" data-type="knight" value="${typeMax('knight')}">
-          <span class="lbl" style="width:auto">Swordsman</span><input type="number" min="1" max="999" data-type="swordsman" value="${typeMax('swordsman')}"></div>
+        <div class="sub">Unit types · values for new units</div>
+        <table class="st"><tr><th></th><th>HP</th><th>Stamina</th><th>Mana</th></tr>
+        ${['knight', 'swordsman'].map(ty => `<tr><td>${UNIT_TYPES[ty].name}</td>
+          <td><input type="number" min="1" max="999" data-type="${ty}" value="${typeMax(ty)}"></td>
+          <td><input type="number" min="0" max="99" data-type="${ty}" data-stat="staMax" value="${typeStat(ty, 'staMax')}"></td>
+          <td><input type="number" min="0" max="99" data-type="${ty}" data-stat="manaMax" value="${typeStat(ty, 'manaMax')}"></td></tr>`).join('')}</table>
         ${selUnit ? `<div class="sub">Selected: ${teamName(selUnit.team)} ${selUnit.name}</div>
-        <div class="row"><span class="lbl">Max HP</span><input type="number" min="1" max="999" data-unit="max" value="${selUnit.maxHp}">
-          <span class="lbl" style="width:auto">HP</span><input type="number" min="1" max="999" data-unit="hp" value="${selUnit.hp}"></div>
-        <div class="row"><button data-act="remove">Remove</button></div>` : '<div class="sub">Click a unit to edit its HP</div>'}
+        <table class="st"><tr><th></th><th>Current</th><th>Max</th></tr>
+          <tr><td>HP</td><td><input type="number" min="1" max="999" data-unit="hp" value="${selUnit.hp}"></td><td><input type="number" min="1" max="999" data-unit="max" value="${selUnit.maxHp}"></td></tr>
+          <tr><td>Stamina</td><td><input type="number" min="0" max="99" data-unit="sta" value="${selUnit.sta}"></td><td><input type="number" min="0" max="99" data-unit="staMax" value="${selUnit.staMax}"></td></tr>
+          <tr><td>Mana</td><td><input type="number" min="0" max="99" data-unit="mana" value="${selUnit.mana}"></td><td><input type="number" min="0" max="99" data-unit="manaMax" value="${selUnit.manaMax}"></td></tr></table>
+        <div class="row"><button data-act="remove">Remove</button></div>` : '<div class="sub">Click a unit to edit its HP, stamina and mana</div>'}
         <div class="k">${placing ? 'Click empty tiles to place · Esc to stop' : 'Pick a unit above, then click tiles to place it.<br>Drag any unit to move it · Del removes the unit under the mouse.'}</div>`;
       if (dmEl.dataset.h !== html) { dmEl.dataset.h = html; dmEl.innerHTML = html; }
       dmEl.style.display = 'block';
@@ -915,8 +949,13 @@
   });
   document.getElementById('dm').addEventListener('change', e => {
     const i = e.target; if (i.tagName !== 'INPUT' || !dmActive() || busy()) return;
-    if (i.dataset.type) setTypeMax(i.dataset.type, i.value);
-    else if (i.dataset.unit && selUnit) { if (i.dataset.unit === 'max') setUnitMax(selUnit, i.value); else selUnit.hp = Math.min(selUnit.maxHp, clampHp(i.value)); }
+    const k = i.dataset.unit;
+    if (i.dataset.type) { if (i.dataset.stat) setTypeStat(i.dataset.type, i.dataset.stat, i.value); else setTypeMax(i.dataset.type, i.value); }
+    else if (k && selUnit) {
+      if (k === 'max') setUnitMax(selUnit, i.value); else if (k === 'hp') selUnit.hp = Math.min(selUnit.maxHp, clampHp(i.value));
+      else if (k === 'sta' || k === 'staMax') setUnitRes(selUnit, 'sta', 'staMax', i.value, k === 'staMax');
+      else if (k === 'mana' || k === 'manaMax') setUnitRes(selUnit, 'mana', 'manaMax', i.value, k === 'manaMax');
+    }
     else return;
     commit({ type: 'edit' });
   });
@@ -958,7 +997,7 @@
         if (h && !unitAt(h)) {
           const T = UNIT_TYPES[placing.type];
           units.push(runtimeUnit({ id: placing.type[0] + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), type: placing.type,
-            team: placing.team, col: h[0], row: h[1], hp: typeMax(placing.type), maxHp: typeMax(placing.type), face: placing.team === 'blue' ? Math.PI / 2 : -Math.PI / 2, moved: false, attacked: false }));
+            team: placing.team, col: h[0], row: h[1], hp: typeMax(placing.type), maxHp: typeMax(placing.type), sta: typeStat(placing.type, 'staMax'), staMax: typeStat(placing.type, 'staMax'), mana: typeStat(placing.type, 'manaMax'), manaMax: typeStat(placing.type, 'manaMax'), face: placing.team === 'blue' ? Math.PI / 2 : -Math.PI / 2, moved: false, attacked: false }));
           commit({ type: 'edit' });
         } else if (h) toast('That tile is taken');
       } else {
