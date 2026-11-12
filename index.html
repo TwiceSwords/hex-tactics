@@ -50,7 +50,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div class="t">Hex Board · prototype v0.17</div>
+  <div class="t">Hex Board · prototype v0.18</div>
   <div>Hex: <span id="hov">–</span> &nbsp; Selected: <span id="sel">–</span></div>
   <div id="info" style="color:#e2d6a6"></div>
   <div class="k">Drag: pan · Wheel: zoom · Left-click: select · Esc: deselect</div>
@@ -416,12 +416,13 @@
   function exportState(last) {
     return { seq: game.seq, turn: game.turn, round: game.round, dm: !!game.dm, battle: !!game.battle, types: game.types, last: last || null,
       units: units.filter(u => u.dying === null && u.hp > 0).map(u => ({ id: u.id, type: u.type, team: u.team, col: u.col, row: u.row, hp: u.hp, maxHp: u.maxHp,
-        face: Math.round(u.face * 100) / 100, moved: u.moved, attacked: u.attacked })) };
+        face: Math.round(u.want * 100) / 100, moved: u.moved, attacked: u.attacked })) };
   }
   function applyState(st) {                       // snap to a shared state (keeps smooth facing/HP bars)
     const old = new Map(units.map(u => [u.id, u]));
     units = st.units.map(s => { const o = old.get(s.id);
       if (!o) return runtimeUnit(s);
+      if (typeof s.face === 'number') o.want = s.face;          // keep facing in sync with the shared game
       Object.assign(o, { col: s.col, row: s.row, hp: s.hp, maxHp: s.maxHp || o.maxHp, moved: s.moved, attacked: s.attacked, path: null, atk: null, dying: null, dragPos: null });
       return o; });
     game = { seq: st.seq, turn: st.turn, round: st.round, dm: !!st.dm, battle: !!st.battle, types: (st.types && typeof st.types === 'object') ? st.types : {} };
@@ -944,10 +945,6 @@
     }
     const h = pick(e.clientX, e.clientY);
     if (fmt(h) !== fmt(hover)) { hover = h; hovEl.textContent = fmt(h); }
-    if (selUnit && canCommand(selUnit) && !dragging && !busy() && !placing) {
-      const m = center(selUnit.col, selUnit.row), bx = (e.clientX - off.x) / z - OX - m.x, by = ((e.clientY - off.y) / z - OY - m.y) / SQ;
-      if (Math.hypot(bx, by) > 4) selUnit.want = Math.atan2(bx, by);
-    }
   });
   cv.addEventListener('pointerup', e => {
     const h = pick(e.clientX, e.clientY);
