@@ -50,7 +50,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div class="t">Hex Board · prototype v0.16</div>
+  <div class="t">Hex Board · prototype v0.17</div>
   <div>Hex: <span id="hov">–</span> &nbsp; Selected: <span id="sel">–</span></div>
   <div id="info" style="color:#e2d6a6"></div>
   <div class="k">Drag: pan · Wheel: zoom · Left-click: select · Esc: deselect</div>
@@ -842,10 +842,10 @@
       if (el.dataset.h !== html) { el.dataset.h = html; el.innerHTML = html; }
       el.classList.toggle('active', active); el.style.setProperty('--tc', `rgb(${TEAM[team].map(v => v + 60)})`);
     }
-    endBtn.disabled = !!w || !myTurn() || busy();
+    endBtn.disabled = !!w || !myTurn() || busy() || endLocked();
     // turn change flash
     if (!w && game.turn !== seenTurn) {
-      seenTurn = game.turn; const c = `rgb(${TEAM[game.turn].map(v => v + 40)})`;
+      seenTurn = game.turn; turnStartedAt = Date.now(); const c = `rgb(${TEAM[game.turn].map(v => v + 40)})`;
       topEl.style.setProperty('--tc', c); topEl.classList.remove('pulse'); void topEl.offsetWidth; topEl.classList.add('pulse');
       flashEl.style.color = `rgb(${TEAM[game.turn].map(v => v + 90)})`;
       flashEl.textContent = mode === 'online' ? (myTurn() ? 'YOUR TURN' : `${poss(teamName(game.turn)).toUpperCase()} TURN`) : `${poss(teamName(game.turn)).toUpperCase()} TURN`;
@@ -898,7 +898,9 @@
     selUnit = null; sel = null; publish(null); refreshUI();
   });
 
-  function endTurn() { if (winner() || !myTurn() || busy()) return; commit({ type: 'end' }); }
+  let turnStartedAt = 0;                                    // End turn is locked for 1 s after every turn change
+  const endLocked = () => Date.now() - turnStartedAt < 1000;
+  function endTurn() { if (winner() || !myTurn() || busy() || endLocked()) return; commit({ type: 'end' }); }
   const endBtn = document.getElementById('endturn');
   endBtn.addEventListener('click', endTurn);
   document.getElementById('bsave').addEventListener('click', saveFile);
