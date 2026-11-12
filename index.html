@@ -24,8 +24,10 @@
   #savebar .k{color:#8f9682;margin-left:4px}
   #toast{position:fixed;left:50%;bottom:70px;transform:translateX(-50%);background:rgba(20,22,14,.92);color:#eadfb4;padding:8px 16px;border-radius:8px;border:1px solid #6b5d36;font-size:14px;opacity:0;pointer-events:none}
   #toast.show{animation:toast 2.6s ease-out}@keyframes toast{0%{opacity:0;transform:translate(-50%,8px)}10%{opacity:1;transform:translate(-50%,0)}75%{opacity:1}100%{opacity:0}}
-  #dm{position:fixed;left:12px;top:190px;background:rgba(10,12,8,.85);color:#c9cdbd;padding:10px 12px;border-radius:8px;font-size:13px;border:1px solid #6b5d36;user-select:none;display:none;width:250px}
+  #dm{position:fixed;left:12px;top:190px;background:rgba(10,12,8,.85);color:#c9cdbd;padding:10px 12px;border-radius:8px;font-size:13px;border:1px solid #6b5d36;user-select:none;display:none;width:270px}
   #dm .t{color:#e2d6a6;font-weight:700;margin-bottom:6px}#dm .row{display:flex;gap:6px;align-items:center;margin:5px 0}#dm .lbl{width:58px;color:#8f9682}
+  #dm .sub{color:#c8b98a;font-size:12px;margin-top:9px;border-top:1px solid rgba(255,255,255,.08);padding-top:7px}
+  #dm input{font:inherit;font-size:13px;width:52px;background:#1d2016;color:#eadfb4;border:1px solid #6b5d36;border-radius:6px;padding:3px 6px}
   #dm .k{color:#8f9682;font-size:12px;margin-top:6px;line-height:1.5}
   #net{position:fixed;right:12px;top:12px;background:rgba(10,12,8,.8);color:#c9cdbd;padding:10px 12px;border-radius:8px;font-size:13px;border:1px solid rgba(255,255,255,.07);user-select:none}
   #net .seats{display:flex;gap:6px;margin-top:8px}
@@ -48,7 +50,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div class="t">Hex Board · prototype v0.15</div>
+  <div class="t">Hex Board · prototype v0.16</div>
   <div>Hex: <span id="hov">–</span> &nbsp; Selected: <span id="sel">–</span></div>
   <div id="info" style="color:#e2d6a6"></div>
   <div class="k">Drag: pan · Wheel: zoom · Left-click: select · Esc: deselect</div>
@@ -397,7 +399,8 @@
     { id: 'r1', col: 14, row: 8, team: 'red' }, { id: 'r2', col: 14, row: 11, team: 'red' }, { id: 'r3', col: 14, row: 14, team: 'red' },
   ];
   // game = what both players share; units = the same plus local animation fields
-  let game = { seq: 0, turn: 'blue', round: 1, dm: false, battle: false };
+  let game = { seq: 0, turn: 'blue', round: 1, dm: false, battle: false, types: {} };
+  const typeMax = type => (game.types[type] && game.types[type].maxHp) || UNIT_TYPES[type].maxHp;   // DM can change a unit type's max HP
   let units = [], floats = [], selUnit = null, afterIdle = null;
 
   function runtimeUnit(s) {
@@ -408,20 +411,20 @@
   }
   function freshState(seq) {
     return { seq, turn: 'blue', round: 1, last: null, dm: !!game.dm, battle: false,
-      units: START.map(s => ({ ...s, type: 'swordsman', hp: 12, face: s.team === 'blue' ? Math.PI / 2 : -Math.PI / 2, moved: false, attacked: false })) };
+      types: game.types, units: START.map(s => ({ ...s, type: 'swordsman', hp: typeMax('swordsman'), maxHp: typeMax('swordsman'), face: s.team === 'blue' ? Math.PI / 2 : -Math.PI / 2, moved: false, attacked: false })) };
   }
   function exportState(last) {
-    return { seq: game.seq, turn: game.turn, round: game.round, dm: !!game.dm, battle: !!game.battle, last: last || null,
-      units: units.filter(u => u.dying === null && u.hp > 0).map(u => ({ id: u.id, type: u.type, team: u.team, col: u.col, row: u.row, hp: u.hp,
+    return { seq: game.seq, turn: game.turn, round: game.round, dm: !!game.dm, battle: !!game.battle, types: game.types, last: last || null,
+      units: units.filter(u => u.dying === null && u.hp > 0).map(u => ({ id: u.id, type: u.type, team: u.team, col: u.col, row: u.row, hp: u.hp, maxHp: u.maxHp,
         face: Math.round(u.face * 100) / 100, moved: u.moved, attacked: u.attacked })) };
   }
   function applyState(st) {                       // snap to a shared state (keeps smooth facing/HP bars)
     const old = new Map(units.map(u => [u.id, u]));
     units = st.units.map(s => { const o = old.get(s.id);
       if (!o) return runtimeUnit(s);
-      Object.assign(o, { col: s.col, row: s.row, hp: s.hp, moved: s.moved, attacked: s.attacked, path: null, atk: null, dying: null, dragPos: null });
+      Object.assign(o, { col: s.col, row: s.row, hp: s.hp, maxHp: s.maxHp || o.maxHp, moved: s.moved, attacked: s.attacked, path: null, atk: null, dying: null, dragPos: null });
       return o; });
-    game = { seq: st.seq, turn: st.turn, round: st.round, dm: !!st.dm, battle: !!st.battle };
+    game = { seq: st.seq, turn: st.turn, round: st.round, dm: !!st.dm, battle: !!st.battle, types: (st.types && typeof st.types === 'object') ? st.types : {} };
     updateSeat();
     if (selUnit && !units.includes(selUnit)) { selUnit = null; sel = null; }
     if (selUnit) sel = [selUnit.col, selUnit.row];
@@ -579,7 +582,7 @@
     ctx.fillStyle = `hsl(${hue},55%,42%)`; ctx.fillRect(x, y, w * f, h);
     ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(x, y, w * f, h / 2.5);
     ctx.fillStyle = 'rgba(8,10,6,0.7)';
-    const step = u.maxHp > 12 ? 2 : 1;                        // one notch per HP (per 2 HP for big units)
+    const step = Math.max(1, Math.ceil(u.maxHp / 14));         // about 12-14 notches, whatever the max HP
     for (let i = step; i < u.maxHp; i += step) ctx.fillRect(x + w * i / u.maxHp - 0.5, y, 1, h);
     const tc = TEAM[u.team];
     ctx.fillStyle = `rgb(${tc[0] + 60},${tc[1] + 60},${tc[2] + 60})`; ctx.fillRect(x - 1.5, y - 1.5, 3, h + 3);   // team tick
@@ -677,10 +680,18 @@
     updateSeat(); commit({ type: 'edit' });
     toast(game.dm ? (mode === 'online' ? 'Dungeon Master mode ON · you are the DM, your friend plays the heroes' : 'Dungeon Master mode ON') : 'Dungeon Master mode OFF');
   }
-  function removeSelected() {
-    if (!dmActive() || !selUnit || busy()) return;
-    units = units.filter(u => u !== selUnit); selUnit = null; sel = null; commit({ type: 'edit' });
+  function removeUnit(u) {
+    if (!dmActive() || !u || busy()) return;
+    units = units.filter(x => x !== u); if (selUnit === u) { selUnit = null; sel = null; } commit({ type: 'edit' });
   }
+  const removeSelected = () => removeUnit(selUnit);
+  const clampHp = v => Math.max(1, Math.min(999, Math.round(Number(v) || 1)));
+  function setUnitMax(u, v) {                // raising max HP does not heal a wounded unit; a unit at full stays full
+    const nm = clampHp(v), wasFull = u.hp >= u.maxHp;
+    u.maxHp = nm; u.hp = wasFull ? nm : Math.min(u.hp, nm); u.hpShown = Math.min(u.hpShown, nm);
+  }
+  function setTypeMax(type, v) { game.types = { ...game.types, [type]: { maxHp: clampHp(v) } }; }
+  function healHeroes() { if (!dmActive() || busy()) return; for (const u of units) if (u.team === 'blue') u.hp = u.maxHp; commit({ type: 'edit' }); toast('All heroes healed'); }
   let room = null, mode = 'local', mySeat = null, peerList = [], lastRemote = null;
   const netEl = document.getElementById('net');
   function publish(last) {
@@ -808,8 +819,15 @@
       const html = `<div class="t">🧙 Dungeon Master tools</div>
         <div class="row"><span class="lbl">Heroes</span>${pb('knight', 'blue', 'Knight')}${pb('swordsman', 'blue', 'Swordsman')}</div>
         <div class="row"><span class="lbl">Enemies</span>${pb('swordsman', 'red', 'Swordsman')}${pb('knight', 'red', 'Knight')}</div>
-        <div class="row"><button data-act="remove" ${selUnit ? '' : 'disabled'}>Remove selected (Del)</button></div>
-        <div class="k">${placing ? 'Click empty tiles to place · Esc to stop' : 'Pick a unit above, then click tiles to place it.<br>Drag any unit to move it anywhere.'}</div>`;
+        <div class="row"><button data-act="heal">❤ Heal all heroes</button></div>
+        <div class="sub">Unit types · max HP for new units</div>
+        <div class="row"><span class="lbl">Knight</span><input type="number" min="1" max="999" data-type="knight" value="${typeMax('knight')}">
+          <span class="lbl" style="width:auto">Swordsman</span><input type="number" min="1" max="999" data-type="swordsman" value="${typeMax('swordsman')}"></div>
+        ${selUnit ? `<div class="sub">Selected: ${teamName(selUnit.team)} ${selUnit.name}</div>
+        <div class="row"><span class="lbl">Max HP</span><input type="number" min="1" max="999" data-unit="max" value="${selUnit.maxHp}">
+          <span class="lbl" style="width:auto">HP</span><input type="number" min="1" max="999" data-unit="hp" value="${selUnit.hp}"></div>
+        <div class="row"><button data-act="remove">Remove</button></div>` : '<div class="sub">Click a unit to edit its HP</div>'}
+        <div class="k">${placing ? 'Click empty tiles to place · Esc to stop' : 'Pick a unit above, then click tiles to place it.<br>Drag any unit to move it · Del removes the unit under the mouse.'}</div>`;
       if (dmEl.dataset.h !== html) { dmEl.dataset.h = html; dmEl.innerHTML = html; }
       dmEl.style.display = 'block';
     } else { dmEl.style.display = 'none'; placing = null; }
@@ -889,7 +907,15 @@
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.place) { const [type, team] = b.dataset.place.split(':'); placing = placing && placing.type === type && placing.team === team ? null : { type, team }; selUnit = null; sel = null; }
     if (b.dataset.act === 'remove') removeSelected();
+    if (b.dataset.act === 'heal') healHeroes();
     refreshUI();
+  });
+  document.getElementById('dm').addEventListener('change', e => {
+    const i = e.target; if (i.tagName !== 'INPUT' || !dmActive() || busy()) return;
+    if (i.dataset.type) setTypeMax(i.dataset.type, i.value);
+    else if (i.dataset.unit && selUnit) { if (i.dataset.unit === 'max') setUnitMax(selUnit, i.value); else selUnit.hp = Math.min(selUnit.maxHp, clampHp(i.value)); }
+    else return;
+    commit({ type: 'edit' });
   });
   document.getElementById('bload').addEventListener('click', () => document.getElementById('fload').click());
   document.getElementById('fload').addEventListener('change', e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; });
@@ -933,7 +959,7 @@
         if (h && !unitAt(h)) {
           const T = UNIT_TYPES[placing.type];
           units.push(runtimeUnit({ id: placing.type[0] + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), type: placing.type,
-            team: placing.team, col: h[0], row: h[1], hp: T.maxHp, face: placing.team === 'blue' ? Math.PI / 2 : -Math.PI / 2, moved: false, attacked: false }));
+            team: placing.team, col: h[0], row: h[1], hp: typeMax(placing.type), maxHp: typeMax(placing.type), face: placing.team === 'blue' ? Math.PI / 2 : -Math.PI / 2, moved: false, attacked: false }));
           commit({ type: 'edit' });
         } else if (h) toast('That tile is taken');
       } else {
@@ -953,13 +979,13 @@
 
   // hotkeys: work the same for every player on their own PC
   addEventListener('keydown', e => {
-    if (e.target && e.target.tagName === 'INPUT') { if (e.key === 'Enter') p2pJoin(e.target.value); return; }
+    if (e.target && e.target.tagName === 'INPUT') { if (e.key === 'Enter') { if (e.target.id === 'code') p2pJoin(e.target.value); else e.target.blur(); } return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveFile(); return; }
     if (e.repeat) return;
     const k = e.key.toLowerCase();
     if (k === 'r') resetGame();
     if (k === 'escape') { if (placing) { placing = null; refreshUI(); return; } sel = null; selUnit = null; refreshUI(); }
-    if (k === 'delete' || k === 'backspace') removeSelected();
+    if (k === 'delete' || k === 'backspace') removeUnit(unitAt(hover) || selUnit);   // DM: delete the unit under the mouse
     if (k === ' ') { e.preventDefault(); endTurn(); }
     if (k === 'tab') {                                       // cycle through your units that can still act
       e.preventDefault();
