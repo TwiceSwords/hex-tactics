@@ -15,6 +15,11 @@
   #top{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:rgba(10,12,8,.8);color:#d8dccb;padding:9px 16px;border-radius:8px;font-size:14px;border:1px solid rgba(255,255,255,.08);display:flex;gap:14px;align-items:center;user-select:none}
   button{font:inherit;font-size:13px;background:#3b3524;color:#eadfb4;border:1px solid #6b5d36;border-radius:6px;padding:5px 12px;cursor:pointer}
   button:hover:not(:disabled){background:#4a422c}button:disabled{opacity:.4;cursor:default}button.on{background:#6b5d36;color:#fff4cf}
+  #teams{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:12px;user-select:none;pointer-events:none}
+  .team{background:rgba(10,12,8,.82);color:#c9cdbd;padding:8px 14px;border-radius:8px;font-size:13px;border:1px solid rgba(255,255,255,.07);min-width:190px;opacity:.6;transition:opacity .3s,border-color .3s}
+  .team.active{opacity:1;border-color:var(--tc)}
+  .team .nm{font-weight:700;letter-spacing:1px}
+  .pips{display:inline-flex;gap:4px;margin-left:8px;vertical-align:middle}.pip{width:10px;height:10px;border-radius:2px;border:1px solid #b2924a;background:transparent}.pip.on{background:#b2924a}.pip.half{background:linear-gradient(90deg,#96783a 50%,transparent 50%)}
   #net{position:fixed;right:12px;top:12px;background:rgba(10,12,8,.8);color:#c9cdbd;padding:10px 12px;border-radius:8px;font-size:13px;border:1px solid rgba(255,255,255,.07);user-select:none}
   #net .seats{display:flex;gap:6px;margin-top:8px}
   #net .k{color:#8f9682;max-width:300px}
@@ -36,7 +41,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div class="t">Hex Board · prototype v0.11</div>
+  <div class="t">Hex Board · prototype v0.12</div>
   <div>Hex: <span id="hov">–</span> &nbsp; Selected: <span id="sel">–</span></div>
   <div id="info" style="color:#e2d6a6"></div>
   <div class="k">Drag: pan · Wheel: zoom · Left-click: select · Esc: deselect</div>
@@ -44,6 +49,7 @@
   <div class="k">Turn passes automatically · Space: end turn early · R twice: new game</div>
 </div>
 <div id="top"><span id="turn"></span></div>
+<div id="teams"><div class="team" id="tb"></div><div class="team" id="tr"></div></div>
 <div id="flash"></div>
 <div id="victory"><div class="v1">VICTORY</div><div class="v2" id="vname"></div></div>
 <div id="net"></div>
@@ -51,7 +57,7 @@
 <script>
 (() => {
   // ---------- Board settings ----------
-  const COLS = 26, ROWS = 20;     // board size in hexes
+  const COLS = 22, ROWS = 22;     // board size in hexes (pointy-top: rows run straight left-right)
   const S = 40;                   // hex radius (center to corner), px
   const SQ = 0.6;                 // vertical squash for the angled (isometric-style) view
   const SKIRT = 14;               // thickness of the earth edge under the board
@@ -61,20 +67,20 @@
   const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
 
   // flat-top hexes, "odd-q" offset columns
-  const center = (c, r) => ({ x: 1.5 * S * c, y: SQ3 * S * (r + 0.5 * (c & 1)) * SQ });
+  const center = (c, r) => ({ x: SQ3 * S * (c + 0.5 * (r & 1)), y: 1.5 * S * r * SQ });
   const corners = (cx, cy) => {
     const p = [];
-    for (let i = 0; i < 6; i++) { const a = Math.PI / 3 * i; p.push([cx + S * Math.cos(a), cy + S * Math.sin(a) * SQ]); }
+    for (let i = 0; i < 6; i++) { const a = Math.PI / 3 * i + Math.PI / 6; p.push([cx + S * Math.cos(a), cy + S * Math.sin(a) * SQ]); }
     return p;
   };
-  const toCube = (c, r) => { const q = c, rr = r - (c - (c & 1)) / 2; return [q, rr, -q - rr]; };
+  const toCube = (c, r) => { const q = c - (r - (r & 1)) / 2; return [q, r, -q - r]; };
   const hexDist = (a, b) => { const A = toCube(a[0], a[1]), B = toCube(b[0], b[1]);
     return (Math.abs(A[0] - B[0]) + Math.abs(A[1] - B[1]) + Math.abs(A[2] - B[2])) / 2; };
 
   // ---------- Board canvas size ----------
   const PAD = 24;
-  const minX = -S, maxX = 1.5 * S * (COLS - 1) + S;
-  const minY = -SQ3 / 2 * S * SQ, maxY = SQ3 * S * (ROWS - 0.5) * SQ + SQ3 / 2 * S * SQ + SKIRT;
+  const minX = -SQ3 / 2 * S, maxX = SQ3 * S * (COLS - 0.5) + SQ3 / 2 * S;
+  const minY = -S * SQ, maxY = 1.5 * S * (ROWS - 1) * SQ + S * SQ + SKIRT;
   const BW = Math.ceil(maxX - minX + PAD * 2), BH = Math.ceil(maxY - minY + PAD * 2);
   const OX = -minX + PAD, OY = -minY + PAD;
 
@@ -147,8 +153,8 @@
     for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS; r++) {
       const m = center(c, r), p = corners(m.x + OX, m.y + OY);
       b.beginPath(); b.moveTo(p[0][0], p[0][1]);
-      for (let i = 1; i <= 3; i++) b.lineTo(p[i][0], p[i][1]);
-      for (let i = 3; i >= 0; i--) b.lineTo(p[i][0], p[i][1] + SKIRT);
+      for (let i = 1; i <= 2; i++) b.lineTo(p[i][0], p[i][1]);
+      for (let i = 2; i >= 0; i--) b.lineTo(p[i][0], p[i][1] + SKIRT);
       b.closePath();
       const gr = b.createLinearGradient(0, m.y + OY, 0, m.y + OY + S * SQ + SKIRT);
       gr.addColorStop(0, '#2c2318'); gr.addColorStop(1, '#16110b');
@@ -295,8 +301,8 @@
   const TEAM_NAME = { blue: 'Blue', red: 'Red' };
   const MESH = { blue: buildSwordsman(TEAM.blue), red: buildSwordsman(TEAM.red) };
   const START = [
-    { id: 'b1', col: 9, row: 8, team: 'blue' }, { id: 'b2', col: 9, row: 10, team: 'blue' }, { id: 'b3', col: 9, row: 12, team: 'blue' },
-    { id: 'r1', col: 16, row: 8, team: 'red' }, { id: 'r2', col: 16, row: 10, team: 'red' }, { id: 'r3', col: 16, row: 12, team: 'red' },
+    { id: 'b1', col: 7, row: 8, team: 'blue' }, { id: 'b2', col: 7, row: 11, team: 'blue' }, { id: 'b3', col: 7, row: 14, team: 'blue' },
+    { id: 'r1', col: 14, row: 8, team: 'red' }, { id: 'r2', col: 14, row: 11, team: 'red' }, { id: 'r3', col: 14, row: 14, team: 'red' },
   ];
   // game = what both players share; units = the same plus local animation fields
   let game = { seq: 0, turn: 'blue', round: 1 };
@@ -334,7 +340,7 @@
 
   // hex neighbours & pathfinding (odd-q offset <-> axial)
   const DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
-  const toAx = (c, r) => [c, r - (c - (c & 1)) / 2], fromAx = (q, r) => [q, r + (q - (q & 1)) / 2];
+  const toAx = (c, r) => [c - (r - (r & 1)) / 2, r], fromAx = (q, r) => [q + (r - (r & 1)) / 2, r];
   const key = (c, r) => c + ',' + r;
   const neighbors = (c, r) => { const [q, rr] = toAx(c, r);
     return DIRS.map(([dq, dr]) => fromAx(q + dq, rr + dr)).filter(([a, b]) => a >= 0 && a < COLS && b >= 0 && b < ROWS); };
@@ -451,6 +457,11 @@
     ctx.font = '600 9px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillText(`${u.hp}/${u.maxHp}`, bx + 0.6, y - 1.4);
     ctx.fillStyle = '#e9e4cf'; ctx.fillText(`${u.hp}/${u.maxHp}`, bx, y - 2);
+    if (u.team === game.turn && u.dying === null && !winner() && !unitDone(u)) {   // still has its turn
+      ctx.fillStyle = 'rgba(8,10,6,0.8)'; ctx.fillRect(x - 1.5, y + h + 2, w + 3, 4);
+      ctx.fillStyle = u.moved ? 'rgba(150,120,52,0.95)' : 'rgba(178,146,64,0.95)';
+      ctx.fillRect(x, y + h + 3, u.moved ? w / 2 : w, 2);
+    }
   }
   function turnUnits(dt) {
     for (const u of units) {
@@ -472,11 +483,11 @@
 
   function pick(mx, my) {
     const bx = (mx - off.x) / z - OX, by = ((my - off.y) / z - OY) / SQ;
-    const qf = (2 / 3 * bx) / S, rf = (-1 / 3 * bx + SQ3 / 3 * by) / S, sf = -qf - rf;
+    const qf = (SQ3 / 3 * bx - 1 / 3 * by) / S, rf = (2 / 3 * by) / S, sf = -qf - rf;
     let q = Math.round(qf), r = Math.round(rf), s = Math.round(sf);
     const dq = Math.abs(q - qf), dr = Math.abs(r - rf), ds = Math.abs(s - sf);
     if (dq > dr && dq > ds) q = -r - s; else if (dr > ds) r = -q - s;
-    const col = q, row = r + (q - (q & 1)) / 2;
+    const col = q + (r - (r & 1)) / 2, row = r;
     return (col >= 0 && col < COLS && row >= 0 && row < ROWS) ? [col, row] : null;
   }
 
@@ -628,6 +639,17 @@
       : `Round ${game.round} · <b style="color:rgb(${TEAM[game.turn].map(c => c + 70)})">${TEAM_NAME[game.turn]}'s turn</b>` +
         (mode === 'online' ? (myTurn() ? ' · your move' : ' · waiting for opponent') : '');
     if (Date.now() - resetArmed > 2000 && lastTurnHtml !== turnHtml) { lastTurnHtml = turnHtml; turnEl.innerHTML = turnHtml; }
+    // team panels: units that still have their turn
+    for (const team of ['blue', 'red']) {
+      const el = document.getElementById(team === 'blue' ? 'tb' : 'tr'), alive = units.filter(u => u.team === team && u.dying === null);
+      const active = team === game.turn && !w, left = active ? alive.filter(u => !unitDone(u)).length : alive.length;
+      const pips = alive.map(u => `<span class="pip ${!active ? 'on' : unitDone(u) ? '' : u.moved ? 'half' : 'on'}"></span>`).join('');
+      const you = mode === 'online' && mySeat === team ? ' (you)' : '';
+      const html = `<span class="nm" style="color:rgb(${TEAM[team].map(v => v + 80)})">${TEAM_NAME[team]}${you}</span> · ` +
+        (active ? `${left}/${alive.length} units left to act` : `${alive.length} unit${alive.length === 1 ? '' : 's'} · waiting`) + `<span class="pips">${pips}</span>`;
+      if (el.dataset.h !== html) { el.dataset.h = html; el.innerHTML = html; }
+      el.classList.toggle('active', active); el.style.setProperty('--tc', `rgb(${TEAM[team].map(v => v + 60)})`);
+    }
     // turn change flash
     if (!w && game.turn !== seenTurn) {
       seenTurn = game.turn; const c = `rgb(${TEAM[game.turn].map(v => v + 40)})`;
