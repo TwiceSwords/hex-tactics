@@ -12,7 +12,7 @@
   #hud{position:fixed;left:12px;top:12px;background:rgba(10,12,8,.75);color:#c9cdbd;padding:10px 14px;border-radius:8px;font-size:13px;line-height:1.6;border:1px solid rgba(255,255,255,.07);pointer-events:none;user-select:none}
   #hud .t{color:#e2d6a6;font-weight:600;font-size:14px}
   #hud .k{color:#8f9682}
-  #top{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:rgba(10,12,8,.8);color:#d8dccb;padding:9px 16px;border-radius:8px;font-size:14px;border:1px solid rgba(255,255,255,.08);display:flex;gap:14px;align-items:center;user-select:none}
+  #top{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:rgba(10,12,8,.8);color:#d8dccb;padding:8px 10px 8px 16px;border-radius:8px;font-size:14px;border:1px solid rgba(255,255,255,.08);display:flex;gap:14px;align-items:center;user-select:none}
   button{font:inherit;font-size:13px;background:#3b3524;color:#eadfb4;border:1px solid #6b5d36;border-radius:6px;padding:5px 12px;cursor:pointer}
   button:hover:not(:disabled){background:#4a422c}button:disabled{opacity:.4;cursor:default}button.on{background:#6b5d36;color:#fff4cf}
   #teams{position:fixed;bottom:14px;right:12px;display:flex;flex-direction:column;gap:6px;user-select:none;pointer-events:none}
@@ -48,14 +48,14 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div class="t">Hex Board · prototype v0.14</div>
+  <div class="t">Hex Board · prototype v0.15</div>
   <div>Hex: <span id="hov">–</span> &nbsp; Selected: <span id="sel">–</span></div>
   <div id="info" style="color:#e2d6a6"></div>
   <div class="k">Drag: pan · Wheel: zoom · Left-click: select · Esc: deselect</div>
   <div class="k">Right-click: move / attack enemy · Tab: next unit</div>
-  <div class="k">Turn passes automatically · Space: end turn early · R twice: new game</div>
+  <div class="k">Turn passes automatically · End turn / Space: end it early · R twice: new game</div>
 </div>
-<div id="top"><span id="turn"></span></div>
+<div id="top"><span id="turn"></span><button id="endturn" title="Space">End turn</button></div>
 <div id="dm"></div>
 <div id="savebar"><button id="bdm">🧙 Dungeon Master: Off</button><button id="bsave" title="Ctrl+S">💾 Save file</button><button id="bload">📂 Load file</button><input type="file" id="fload" accept=".json,application/json" hidden><span class="k">autosaves in this browser</span></div>
 <div id="toast"></div>
@@ -383,7 +383,7 @@
   }
 
   // ---------- Units & game state ----------
-  const TEAM = { blue: [52, 86, 146], red: [146, 48, 40] };
+  const TEAM = { blue: [52, 86, 146], red: [152, 30, 42] };
   const poss = n => n.endsWith('s') ? n + "'" : n + "'s";
   const teamName = t => game.dm ? (t === 'blue' ? 'Heroes' : 'Dungeon Master') : (t === 'blue' ? 'Blue' : 'Red');
   const UNIT_TYPES = {
@@ -588,8 +588,8 @@
     ctx.fillStyle = '#e9e4cf'; ctx.fillText(`${u.hp}/${u.maxHp}`, bx, y - 2);
     if (u.team === game.turn && u.dying === null && !winner() && !unitDone(u)) {   // still has its turn
       ctx.fillStyle = 'rgba(8,10,6,0.8)'; ctx.fillRect(x - 1.5, y + h + 2, w + 3, 4);
-      ctx.fillStyle = u.moved ? 'rgba(150,120,52,0.95)' : 'rgba(178,146,64,0.95)';
-      ctx.fillRect(x, y + h + 3, u.moved ? w / 2 : w, 2);
+      ctx.fillStyle = 'rgba(128,102,46,0.95)';                    // half-bright brownish yellow: "has its turn to spend"
+      ctx.fillRect(x, y + h + 3, u.moved ? w / 2 : w, 2.5);
     }
   }
   function turnUnits(dt) {
@@ -824,6 +824,7 @@
       if (el.dataset.h !== html) { el.dataset.h = html; el.innerHTML = html; }
       el.classList.toggle('active', active); el.style.setProperty('--tc', `rgb(${TEAM[team].map(v => v + 60)})`);
     }
+    endBtn.disabled = !!w || !myTurn() || busy();
     // turn change flash
     if (!w && game.turn !== seenTurn) {
       seenTurn = game.turn; const c = `rgb(${TEAM[game.turn].map(v => v + 40)})`;
@@ -880,6 +881,8 @@
   });
 
   function endTurn() { if (winner() || !myTurn() || busy()) return; commit({ type: 'end' }); }
+  const endBtn = document.getElementById('endturn');
+  endBtn.addEventListener('click', endTurn);
   document.getElementById('bsave').addEventListener('click', saveFile);
   document.getElementById('bdm').addEventListener('click', toggleDM);
   document.getElementById('dm').addEventListener('click', e => {
