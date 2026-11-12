@@ -20,6 +20,10 @@
   .team.active{opacity:1;border-color:var(--tc)}
   .team .nm{font-weight:700;letter-spacing:1px}
   .pips{display:inline-flex;gap:4px;margin-left:8px;vertical-align:middle}.pip{width:10px;height:10px;border-radius:2px;border:1px solid #b2924a;background:transparent}.pip.on{background:#b2924a}.pip.half{background:linear-gradient(90deg,#96783a 50%,transparent 50%)}
+  #savebar{position:fixed;left:12px;bottom:14px;display:flex;gap:6px;align-items:center;background:rgba(10,12,8,.8);padding:7px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.07);font-size:12px;user-select:none}
+  #savebar .k{color:#8f9682;margin-left:4px}
+  #toast{position:fixed;left:50%;bottom:70px;transform:translateX(-50%);background:rgba(20,22,14,.92);color:#eadfb4;padding:8px 16px;border-radius:8px;border:1px solid #6b5d36;font-size:14px;opacity:0;pointer-events:none}
+  #toast.show{animation:toast 2.6s ease-out}@keyframes toast{0%{opacity:0;transform:translate(-50%,8px)}10%{opacity:1;transform:translate(-50%,0)}75%{opacity:1}100%{opacity:0}}
   #net{position:fixed;right:12px;top:12px;background:rgba(10,12,8,.8);color:#c9cdbd;padding:10px 12px;border-radius:8px;font-size:13px;border:1px solid rgba(255,255,255,.07);user-select:none}
   #net .seats{display:flex;gap:6px;margin-top:8px}
   #net .k{color:#8f9682;max-width:300px}
@@ -41,7 +45,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div class="t">Hex Board · prototype v0.12</div>
+  <div class="t">Hex Board · prototype v0.13</div>
   <div>Hex: <span id="hov">–</span> &nbsp; Selected: <span id="sel">–</span></div>
   <div id="info" style="color:#e2d6a6"></div>
   <div class="k">Drag: pan · Wheel: zoom · Left-click: select · Esc: deselect</div>
@@ -49,6 +53,8 @@
   <div class="k">Turn passes automatically · Space: end turn early · R twice: new game</div>
 </div>
 <div id="top"><span id="turn"></span></div>
+<div id="savebar"><button id="bsave" title="Ctrl+S">💾 Save file</button><button id="bload">📂 Load file</button><input type="file" id="fload" accept=".json,application/json" hidden><span class="k">autosaves in this browser</span></div>
+<div id="toast"></div>
 <div id="teams"><div class="team" id="tb"></div><div class="team" id="tr"></div></div>
 <div id="flash"></div>
 <div id="victory"><div class="v1">VICTORY</div><div class="v2" id="vname"></div></div>
@@ -331,7 +337,40 @@
     game = { seq: st.seq, turn: st.turn, round: st.round };
     if (selUnit && !units.includes(selUnit)) { selUnit = null; sel = null; }
     if (selUnit) sel = [selUnit.col, selUnit.row];
-    refreshUI();
+    saveLocal(); refreshUI();
+  }
+
+  // ---------- Saving: autosave in this browser + save/load files ----------
+  const SAVE_KEY = 'hex-tactics-save-v1';
+  function saveLocal() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, savedAt: Date.now(), g: exportState(null) })); } catch (e) {} }
+  function validState(st) {
+    return st && typeof st.seq === 'number' && (st.turn === 'blue' || st.turn === 'red') && Array.isArray(st.units) &&
+      st.units.every(u => u && typeof u.id === 'string' && TEAM[u.team] && Number.isInteger(u.col) && Number.isInteger(u.row) &&
+        u.col >= 0 && u.col < COLS && u.row >= 0 && u.row < ROWS && typeof u.hp === 'number');
+  }
+  function loadLocal() {
+    try { const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (d && validState(d.g)) { applyState(d.g); return true; } } catch (e) {}
+    return false;
+  }
+  function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.remove('show'); void t.offsetWidth; t.classList.add('show'); }
+  function saveFile() {
+    const blob = new Blob([JSON.stringify({ v: 1, savedAt: new Date().toISOString(), g: exportState(null) }, null, 1)], { type: 'application/json' });
+    const a = document.createElement('a'), d = new Date();
+    a.href = URL.createObjectURL(blob);
+    a.download = `hex-tactics-round${game.round}-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}.json`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    toast('Saved to your Downloads folder');
+  }
+  function loadFile(file) {
+    if (busy()) { toast('Wait for the current move to finish'); return; }
+    if (mode === 'online' && mySeat !== 'blue') { toast('Only the host can load a save'); return; }
+    file.text().then(txt => {
+      let d; try { d = JSON.parse(txt); } catch (e) { toast('That is not a Hex Tactics save file'); return; }
+      const st = d && d.g; if (!validState(st)) { toast('That is not a Hex Tactics save file'); return; }
+      const loaded = { ...st, seq: game.seq + 1, last: { type: 'load', seq: game.seq + 1 } };
+      floats = []; selUnit = null; sel = null; applyState(loaded); publish(loaded.last);
+      toast(`Loaded save · Round ${loaded.round}`);
+    });
   }
   const unitAt = h => h && units.find(u => u.col === h[0] && u.row === h[1]);
   const busy = () => !!afterIdle || units.some(u => u.path || u.atk || u.dying !== null);
@@ -535,7 +574,7 @@
   }
 
   // ---------- Direct connection (PeerJS / WebRTC): host gets a code, friend joins with it ----------
-  const p2p = { peer: null, conn: null, code: null, role: null, status: '', ready: false };
+  const p2p = { peer: null, conn: null, code: null, role: null, status: '', ready: false, needSync: false };
   const PREFIX = 'hexboard-tactics-';
   function p2pStop(msg) {
     try { p2p.conn && p2p.conn.close(); } catch (e) {} try { p2p.peer && p2p.peer.destroy(); } catch (e) {}
@@ -543,8 +582,11 @@
     mode = 'local'; mySeat = null; refreshUI();
   }
   function p2pSetup(c, seat) {
-    c.on('open', () => { p2p.conn = c; p2p.status = ''; mode = 'online'; mySeat = seat; selUnit = null; sel = null; publish(null); refreshUI(); });
-    c.on('data', d => { if (d && typeof d === 'object' && d.g) onRemoteState(d.g); });
+    if (seat === 'red') p2p.needSync = true;                          // guest waits for the host's game
+    c.on('open', () => { p2p.conn = c; p2p.status = ''; mode = 'online'; mySeat = seat; selUnit = null; sel = null;
+      if (seat === 'blue') publish(null); else try { c.send({ hello: 1 }); } catch (e) {}   // ask the host for its game
+      refreshUI(); });
+    c.on('data', d => { if (!d || typeof d !== 'object') return; if (d.hello && seat === 'blue') publish(null); if (d.g) onRemoteState(d.g); });
     c.on('close', () => { if (p2p.conn === c) p2pStop('Your friend disconnected · playing locally'); });
     c.on('error', () => {});
   }
@@ -579,7 +621,7 @@
         : 'Connection error (' + e.type + ') · check internet / firewall and try again'); });
   }
   function commit(action) {
-    game.seq += 1; if (action.type === 'end') endTurnLocal(); publish({ ...action, seq: game.seq }); refreshUI();
+    game.seq += 1; if (action.type === 'end') endTurnLocal(); publish({ ...action, seq: game.seq }); saveLocal(); refreshUI();
     // hand the turn over automatically once every unit of this side has nothing left to do
     if (action.type !== 'end' && !winner() && sideDone(game.turn)) setTimeout(() => { if (!busy() && !winner() && sideDone(game.turn) && myTurn()) commit({ type: 'end' }); }, 700);
   }
@@ -596,7 +638,9 @@
     selUnit = null; sel = null;
   }
   function onRemoteState(st) {
-    if (!st || typeof st.seq !== 'number' || st.seq <= game.seq || !Array.isArray(st.units)) return;
+    if (!validState(st)) return;
+    if (p2p.needSync) { p2p.needSync = false; if (busy()) { lastRemote = null; } floats = []; selUnit = null; sel = null; applyState(st); toast('Joined the host\'s game'); return; }
+    if (st.seq <= game.seq) return;
     if (busy()) { lastRemote = st; return; }                 // finish current animation first
     const a = st.last;
     if (a && a.seq === st.seq && st.seq === game.seq + 1 && (a.type === 'move' || a.type === 'attack')) {
@@ -706,6 +750,9 @@
   });
 
   function endTurn() { if (winner() || !myTurn() || busy()) return; commit({ type: 'end' }); }
+  document.getElementById('bsave').addEventListener('click', saveFile);
+  document.getElementById('bload').addEventListener('click', () => document.getElementById('fload').click());
+  document.getElementById('fload').addEventListener('change', e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; });
   function resetGame() {
     if (Date.now() - resetArmed > 2000) { resetArmed = Date.now(); turnEl.innerHTML = 'Press <b>R</b> again to reset the game for everyone'; lastTurnHtml = ''; return; }
     resetArmed = 0; const st = freshState(game.seq + 1); st.last = { type: 'reset', seq: st.seq };
@@ -747,6 +794,7 @@
   // hotkeys: work the same for every player on their own PC
   addEventListener('keydown', e => {
     if (e.target && e.target.tagName === 'INPUT') { if (e.key === 'Enter') p2pJoin(e.target.value); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveFile(); return; }
     if (e.repeat) return;
     const k = e.key.toLowerCase();
     if (k === 'r') resetGame();
@@ -790,7 +838,7 @@
   addEventListener('resize', () => resize(false));
 
   // ---------- Start ----------
-  applyState(freshState(0));
+  if (loadLocal()) setTimeout(() => toast(`Continuing your saved game · Round ${game.round}`), 600); else applyState(freshState(0));
   setInterval(() => { if (lastRemote && !busy()) { const st = lastRemote; lastRemote = null; onRemoteState(st); } refreshUI(); }, 250);
   setTimeout(() => {
     buildLayers();
