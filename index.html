@@ -15,7 +15,7 @@
   #top{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:rgba(10,12,8,.8);color:#d8dccb;padding:9px 16px;border-radius:8px;font-size:14px;border:1px solid rgba(255,255,255,.08);display:flex;gap:14px;align-items:center;user-select:none}
   button{font:inherit;font-size:13px;background:#3b3524;color:#eadfb4;border:1px solid #6b5d36;border-radius:6px;padding:5px 12px;cursor:pointer}
   button:hover:not(:disabled){background:#4a422c}button:disabled{opacity:.4;cursor:default}button.on{background:#6b5d36;color:#fff4cf}
-  #teams{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:12px;user-select:none;pointer-events:none}
+  #teams{position:fixed;bottom:14px;right:12px;display:flex;flex-direction:column;gap:6px;user-select:none;pointer-events:none}
   .team{background:rgba(10,12,8,.82);color:#c9cdbd;padding:8px 14px;border-radius:8px;font-size:13px;border:1px solid rgba(255,255,255,.07);min-width:190px;opacity:.6;transition:opacity .3s,border-color .3s}
   .team.active{opacity:1;border-color:var(--tc)}
   .team .nm{font-weight:700;letter-spacing:1px}
@@ -24,6 +24,9 @@
   #savebar .k{color:#8f9682;margin-left:4px}
   #toast{position:fixed;left:50%;bottom:70px;transform:translateX(-50%);background:rgba(20,22,14,.92);color:#eadfb4;padding:8px 16px;border-radius:8px;border:1px solid #6b5d36;font-size:14px;opacity:0;pointer-events:none}
   #toast.show{animation:toast 2.6s ease-out}@keyframes toast{0%{opacity:0;transform:translate(-50%,8px)}10%{opacity:1;transform:translate(-50%,0)}75%{opacity:1}100%{opacity:0}}
+  #dm{position:fixed;left:12px;top:190px;background:rgba(10,12,8,.85);color:#c9cdbd;padding:10px 12px;border-radius:8px;font-size:13px;border:1px solid #6b5d36;user-select:none;display:none;width:250px}
+  #dm .t{color:#e2d6a6;font-weight:700;margin-bottom:6px}#dm .row{display:flex;gap:6px;align-items:center;margin:5px 0}#dm .lbl{width:58px;color:#8f9682}
+  #dm .k{color:#8f9682;font-size:12px;margin-top:6px;line-height:1.5}
   #net{position:fixed;right:12px;top:12px;background:rgba(10,12,8,.8);color:#c9cdbd;padding:10px 12px;border-radius:8px;font-size:13px;border:1px solid rgba(255,255,255,.07);user-select:none}
   #net .seats{display:flex;gap:6px;margin-top:8px}
   #net .k{color:#8f9682;max-width:300px}
@@ -45,7 +48,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div class="t">Hex Board · prototype v0.13</div>
+  <div class="t">Hex Board · prototype v0.14</div>
   <div>Hex: <span id="hov">–</span> &nbsp; Selected: <span id="sel">–</span></div>
   <div id="info" style="color:#e2d6a6"></div>
   <div class="k">Drag: pan · Wheel: zoom · Left-click: select · Esc: deselect</div>
@@ -53,7 +56,8 @@
   <div class="k">Turn passes automatically · Space: end turn early · R twice: new game</div>
 </div>
 <div id="top"><span id="turn"></span></div>
-<div id="savebar"><button id="bsave" title="Ctrl+S">💾 Save file</button><button id="bload">📂 Load file</button><input type="file" id="fload" accept=".json,application/json" hidden><span class="k">autosaves in this browser</span></div>
+<div id="dm"></div>
+<div id="savebar"><button id="bdm">🧙 Dungeon Master: Off</button><button id="bsave" title="Ctrl+S">💾 Save file</button><button id="bload">📂 Load file</button><input type="file" id="fload" accept=".json,application/json" hidden><span class="k">autosaves in this browser</span></div>
 <div id="toast"></div>
 <div id="teams"><div class="team" id="tb"></div><div class="team" id="tr"></div></div>
 <div id="flash"></div>
@@ -212,11 +216,11 @@
     for (let i = 0; i < n; i++) { const j = (i + 1) % n; f.push([i, j, n + j, n + i]); bot.push(i); top.push(n + i); }
     f.push(bot, top); return { v, f };
   }
-  function part(mesh, g, col, { o = [0,0,0], r = [0,0,0], p = [0,0,0] } = {}) {
+  function part(mesh, g, col, { o = [0,0,0], r = [0,0,0], p = [0,0,0], bias = 0 } = {}) {
     const base = mesh.v.length, tv = g.v.map(q => add(rot(add(q, o), r), p));
     const cen = tv.reduce((a, q) => add(a, q), [0,0,0]).map(x => x / tv.length);
     mesh.v.push(...tv, cen);
-    for (const f of g.f) mesh.f.push({ i: f.map(k => k + base), col, c: base + tv.length });
+    for (const f of g.f) mesh.f.push({ i: f.map(k => k + base), col, c: base + tv.length, b: bias });   // bias: draw on top of what it sits on
   }
   const tip = (p, r, len) => add(p, rot([0, -len, 0], r));
 
@@ -267,6 +271,82 @@
     return m;
   }
 
+  // extruded flat shape (e.g. a kite shield): outline in x/y, thickness along z
+  function prismG(pts, d) {
+    const n = pts.length, v = [...pts.map(([x, y]) => [x, y, 0]), ...pts.map(([x, y]) => [x, y, d])], f = [];
+    for (let i = 0; i < n; i++) { const j = (i + 1) % n; f.push([i, j, n + j, n + i]); }
+    f.push([...Array(n).keys()], [...Array(n).keys()].map(i => n + i));
+    return { v, f };
+  }
+
+  // one-sided flat decal facing +z (emblems): invisible from behind
+  function flatG(pts) {
+    let a = 0; for (let i = 0; i < pts.length; i++) { const [x1, y1] = pts[i], [x2, y2] = pts[(i + 1) % pts.length]; a += x1 * y2 - x2 * y1; }
+    const p = a < 0 ? [...pts].reverse() : pts;
+    return { v: p.map(([x, y]) => [x, y, 0]), f: [[...p.keys()]] };
+  }
+  const rectG = (w, h) => flatG([[-w / 2, 0], [w / 2, 0], [w / 2, h], [-w / 2, h]]);
+
+  // Hero: heavy plate armour, great helm with plume, long cloak, kite shield, longsword
+  function buildKnight(team) {
+    const m = { v: [], f: [] };
+    const STEEL = [176,182,192], DSTEEL = [112,118,128], GOLD = [196,160,72], LEATHER = [70,48,30], DARK = [34,28,24],
+          CLOAK = team.map(c => c * 0.55), TRIM = team.map(c => Math.min(255, c * 1.15 + 20));
+    // cloak behind (wider at the hem), plus collar
+    part(m, boxG(5.6, 11.8, 0.28, 0.78, 1), CLOAK, { r: [0.07, 0, 0], p: [0, 2.3, -1.75] });
+    part(m, boxG(4.6, 0.9, 0.9), CLOAK, { p: [0, 13.8, -1.35] });
+    // legs: sabatons, greaves, knee cops, cuisses
+    for (const sx of [-1, 1]) {
+      part(m, boxG(1.5, 1.1, 2.5), DSTEEL, { p: [sx * 1.0, 0, 0.3] });
+      part(m, boxG(1.38, 4.0, 1.5, 0.95, 0.95), STEEL, { p: [sx * 1.0, 1.0, 0] });
+      part(m, boxG(1.1, 0.9, 0.6), DSTEEL, { p: [sx * 1.0, 4.6, 0.6] });
+      part(m, boxG(1.5, 2.6, 1.65, 1.08, 1), STEEL, { p: [sx * 1.0, 4.9, 0] });
+    }
+    // plate skirt, breastplate, surcoat, belt
+    part(m, boxG(4.3, 2.6, 2.9, 0.92, 0.92), STEEL, { p: [0, 6.8, 0] });
+    part(m, boxG(4.3, 5.2, 2.75, 1.14, 1.0), STEEL, { p: [0, 9.1, 0] });
+    part(m, boxG(3.0, 7.4, 0.16, 1.0), team, { p: [0, 5.6, 1.42], bias: 1 });
+    part(m, rectG(3.2, 0.35), TRIM, { p: [0, 12.6, 1.6], bias: 2 });
+    part(m, rectG(0.5, 3.4), GOLD, { p: [0, 7.4, 1.6], bias: 2 });              // emblem: gold cross
+    part(m, rectG(1.9, 0.45), GOLD, { p: [0, 9.9, 1.6], bias: 2 });
+    part(m, boxG(4.45, 0.75, 3.0), LEATHER, { p: [0, 8.9, 0] });
+    part(m, rectG(0.8, 0.8), GOLD, { p: [0, 8.88, 1.62], bias: 3 });
+    // gorget & great helm with eye slit and plume
+    part(m, cylG(1.15, 0.8, 12, 1.0), DSTEEL, { p: [0, 14.0, 0] });
+    part(m, cylG(1.2, 2.5, 12, 1.12), STEEL, { p: [0, 14.7, 0.05] });
+    part(m, cylG(1.12, 0.3, 12, 0.75), STEEL, { p: [0, 17.2, 0.05] });
+    part(m, boxG(1.75, 0.24, 0.3), DARK, { p: [0, 16.1, 1.0] });
+    part(m, boxG(0.22, 1.5, 0.3), DSTEEL, { p: [0, 14.8, 1.12] });
+    part(m, boxG(0.32, 1.1, 2.4, 0.7, 0.6), TRIM, { r: [-0.15, 0, 0], p: [0, 17.35, -0.2] });
+    // big pauldrons with a lower lame
+    for (const sx of [-1, 1]) {
+      part(m, boxG(2.1, 1.6, 3.0, 0.72, 0.85), STEEL, { p: [sx * 2.55, 12.8, 0] });
+      part(m, boxG(1.9, 0.6, 2.7), DSTEEL, { p: [sx * 2.6, 12.25, 0] });
+    }
+    // right arm (screen-left at facing 0) with longsword
+    const rS = [-2.55, 13.2, 0.1], rU = [-0.35, 0, 0.12], rE = tip(rS, rU, 3.5), rF = [-1.35, 0, 0.05], rH = tip(rE, rF, 2.9);
+    part(m, boxG(1.3, 3.5, 1.35), STEEL, { o: [0, -3.5, 0], r: rU, p: rS });
+    part(m, boxG(1.4, 0.9, 1.4), DSTEEL, { o: [0, -0.45, 0], r: rU, p: rE });
+    part(m, boxG(1.2, 2.9, 1.2, 1.1, 1.1), STEEL, { o: [0, -2.9, 0], r: rF, p: rE });
+    part(m, boxG(1.3, 1.1, 1.3), DSTEEL, { o: [0, -0.55, 0], r: rF, p: rH });
+    const sw = [0.4, 0, 0];
+    part(m, boxG(0.34, 1.9, 0.34), LEATHER, { o: [0, -0.95, 0], r: sw, p: rH });
+    part(m, boxG(0.7, 0.55, 0.7), GOLD, { o: [0, -1.5, 0], r: sw, p: rH });
+    part(m, boxG(2.4, 0.36, 0.5), GOLD, { o: [0, 0.95, 0], r: sw, p: rH });
+    part(m, boxG(0.5, 8.6, 0.14, 0.22), [205,210,218], { o: [0, 1.3, 0], r: sw, p: rH });
+    // left arm braced behind a kite shield
+    const lS = [2.55, 13.2, 0.1], lU = [-0.3, 0, -0.1], lE = tip(lS, lU, 3.4), lF = [-1.5, 0, 0], lH = tip(lE, lF, 2.2);
+    part(m, boxG(1.3, 3.4, 1.35), STEEL, { o: [0, -3.4, 0], r: lU, p: lS });
+    part(m, boxG(1.2, 2.2, 1.2), STEEL, { o: [0, -2.2, 0], r: lF, p: lE });
+    const kite = [[-1.65, 3.5], [1.65, 3.5], [2.15, 2.6], [2.0, 0.2], [0, -4.6], [-2.0, 0.2], [-2.15, 2.6]];
+    const sr = [0, 0.3, 0], sp = [lH[0] - 0.3, lH[1] + 0.6, lH[2] + 0.3];
+    part(m, prismG(kite.map(([x, y]) => [x * 1.07, y * 1.05]), 0.35), DSTEEL, { r: sr, p: sp });
+    part(m, prismG(kite, 0.12), team, { r: sr, p: add(sp, rot([0, 0, 0.35], sr)), bias: 1 });
+    part(m, flatG([[-0.28, 2.9], [0.28, 2.9], [0.28, -3.4], [-0.28, -3.4]]), GOLD, { r: sr, p: add(sp, rot([0, 0, 0.5], sr)), bias: 3 });
+    part(m, flatG([[-1.6, 1.6], [1.6, 1.6], [1.6, 1.05], [-1.6, 1.05]]), GOLD, { r: sr, p: add(sp, rot([0, 0, 0.5], sr)), bias: 3 });
+    return m;
+  }
+
   // draw a mesh at board position (bx,by) facing angle th (radians, 0 = toward viewer)
   function drawMesh(g, mesh, bx, by, th, t, flash = 0) {
     const c = Math.cos(th), s = Math.sin(th), breathe = 0.012 * Math.sin(t * 2.1);
@@ -288,7 +368,7 @@
       if ((fc[0]-pc[0])*n[0] + (fc[1]-pc[1])*n[1] + (fc[2]-pc[2])*n[2] < 0) n = n.map(x => -x);
       if (n[1] * SQ + n[2] * CE <= 0.01) continue;            // facing away from camera
       const lit = 0.42 + 0.7 * Math.max(0, n[0]*LIGHT[0] + n[1]*LIGHT[1] + n[2]*LIGHT[2]);
-      faces.push({ f, depth: fc[2] * CE + fc[1] * SQ, lit });
+      faces.push({ f, depth: fc[2] * CE + fc[1] * SQ + f.b, lit });
     }
     faces.sort((p, q) => p.depth - q.depth);
     g.lineJoin = 'round'; g.lineWidth = 0.5;
@@ -304,37 +384,45 @@
 
   // ---------- Units & game state ----------
   const TEAM = { blue: [52, 86, 146], red: [146, 48, 40] };
-  const TEAM_NAME = { blue: 'Blue', red: 'Red' };
-  const MESH = { blue: buildSwordsman(TEAM.blue), red: buildSwordsman(TEAM.red) };
+  const poss = n => n.endsWith('s') ? n + "'" : n + "'s";
+  const teamName = t => game.dm ? (t === 'blue' ? 'Heroes' : 'Dungeon Master') : (t === 'blue' ? 'Blue' : 'Red');
+  const UNIT_TYPES = {
+    swordsman: { name: 'Swordsman', maxHp: 12, dmg: 3, move: 2, build: buildSwordsman },
+    knight:    { name: 'Knight',    maxHp: 24, dmg: 3, move: 2, build: buildKnight },
+  };
+  const meshCache = {};
+  const meshFor = (type, team) => meshCache[type + team] || (meshCache[type + team] = UNIT_TYPES[type].build(TEAM[team]));
   const START = [
     { id: 'b1', col: 7, row: 8, team: 'blue' }, { id: 'b2', col: 7, row: 11, team: 'blue' }, { id: 'b3', col: 7, row: 14, team: 'blue' },
     { id: 'r1', col: 14, row: 8, team: 'red' }, { id: 'r2', col: 14, row: 11, team: 'red' }, { id: 'r3', col: 14, row: 14, team: 'red' },
   ];
   // game = what both players share; units = the same plus local animation fields
-  let game = { seq: 0, turn: 'blue', round: 1 };
+  let game = { seq: 0, turn: 'blue', round: 1, dm: false, battle: false };
   let units = [], floats = [], selUnit = null, afterIdle = null;
 
   function runtimeUnit(s) {
-    return { name: 'Swordsman', maxHp: 12, dmg: 3, move: 2, moved: false, attacked: false, ...s,
-      hpShown: s.hp, want: s.face, mesh: MESH[s.team], phase: Math.random() * 6,
+    const type = UNIT_TYPES[s.type] ? s.type : 'swordsman', T = UNIT_TYPES[type];
+    return { name: T.name, maxHp: T.maxHp, dmg: T.dmg, move: T.move, moved: false, attacked: false, ...s, type,
+      hpShown: s.hp, want: s.face, mesh: meshFor(type, s.team), phase: Math.random() * 6,
       path: null, segT: 0, atk: null, flash: 0, dying: null };
   }
   function freshState(seq) {
-    return { seq, turn: 'blue', round: 1, last: null,
-      units: START.map(s => ({ ...s, hp: 12, face: s.team === 'blue' ? Math.PI / 2 : -Math.PI / 2, moved: false, attacked: false })) };
+    return { seq, turn: 'blue', round: 1, last: null, dm: !!game.dm, battle: false,
+      units: START.map(s => ({ ...s, type: 'swordsman', hp: 12, face: s.team === 'blue' ? Math.PI / 2 : -Math.PI / 2, moved: false, attacked: false })) };
   }
   function exportState(last) {
-    return { seq: game.seq, turn: game.turn, round: game.round, last: last || null,
-      units: units.filter(u => u.dying === null && u.hp > 0).map(u => ({ id: u.id, team: u.team, col: u.col, row: u.row, hp: u.hp,
+    return { seq: game.seq, turn: game.turn, round: game.round, dm: !!game.dm, battle: !!game.battle, last: last || null,
+      units: units.filter(u => u.dying === null && u.hp > 0).map(u => ({ id: u.id, type: u.type, team: u.team, col: u.col, row: u.row, hp: u.hp,
         face: Math.round(u.face * 100) / 100, moved: u.moved, attacked: u.attacked })) };
   }
   function applyState(st) {                       // snap to a shared state (keeps smooth facing/HP bars)
     const old = new Map(units.map(u => [u.id, u]));
     units = st.units.map(s => { const o = old.get(s.id);
       if (!o) return runtimeUnit(s);
-      Object.assign(o, { col: s.col, row: s.row, hp: s.hp, moved: s.moved, attacked: s.attacked, path: null, atk: null, dying: null });
+      Object.assign(o, { col: s.col, row: s.row, hp: s.hp, moved: s.moved, attacked: s.attacked, path: null, atk: null, dying: null, dragPos: null });
       return o; });
-    game = { seq: st.seq, turn: st.turn, round: st.round };
+    game = { seq: st.seq, turn: st.turn, round: st.round, dm: !!st.dm, battle: !!st.battle };
+    updateSeat();
     if (selUnit && !units.includes(selUnit)) { selUnit = null; sel = null; }
     if (selUnit) sel = [selUnit.col, selUnit.row];
     saveLocal(); refreshUI();
@@ -345,7 +433,7 @@
   function saveLocal() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, savedAt: Date.now(), g: exportState(null) })); } catch (e) {} }
   function validState(st) {
     return st && typeof st.seq === 'number' && (st.turn === 'blue' || st.turn === 'red') && Array.isArray(st.units) &&
-      st.units.every(u => u && typeof u.id === 'string' && TEAM[u.team] && Number.isInteger(u.col) && Number.isInteger(u.row) &&
+      st.units.every(u => u && typeof u.id === 'string' && TEAM[u.team] && (u.type === undefined || UNIT_TYPES[u.type]) && Number.isInteger(u.col) && Number.isInteger(u.row) &&
         u.col >= 0 && u.col < COLS && u.row >= 0 && u.row < ROWS && typeof u.hp === 'number');
   }
   function loadLocal() {
@@ -375,7 +463,7 @@
   const unitAt = h => h && units.find(u => u.col === h[0] && u.row === h[1]);
   const busy = () => !!afterIdle || units.some(u => u.path || u.atk || u.dying !== null);
   const faceToward = (u, o) => { const a = center(u.col, u.row), b = center(o.col, o.row); u.want = Math.atan2(b.x - a.x, (b.y - a.y) / SQ); };
-  const winner = () => { const t = new Set(units.filter(u => u.dying === null).map(u => u.team)); return t.size === 1 ? [...t][0] : null; };
+  const winner = () => { if (game.dm && !game.battle) return null; const t = new Set(units.filter(u => u.dying === null).map(u => u.team)); return t.size === 1 ? [...t][0] : null; };
 
   // hex neighbours & pathfinding (odd-q offset <-> axial)
   const DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
@@ -399,6 +487,7 @@
   function pathTo(b, h) { const p = []; let cur = h; while (b.prev.has(key(...cur))) { p.unshift(cur); cur = b.prev.get(key(...cur)); } return p; }
 
   function upos(u) {
+    if (u.dragPos) return u.dragPos;
     const a = center(u.col, u.row); let x = a.x, y = a.y;
     if (u.path) { const b = center(...u.path[0]), e = u.segT * u.segT * (3 - 2 * u.segT); x += (b.x - x) * e; y += (b.y - y) * e; }
     if (u.atk) { const b = center(u.atk.target.col, u.atk.target.row), L = Math.sin(Math.PI * Math.min(1, u.atk.t)) * 0.42;
@@ -490,7 +579,8 @@
     ctx.fillStyle = `hsl(${hue},55%,42%)`; ctx.fillRect(x, y, w * f, h);
     ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(x, y, w * f, h / 2.5);
     ctx.fillStyle = 'rgba(8,10,6,0.7)';
-    for (let i = 1; i < u.maxHp; i++) ctx.fillRect(x + w * i / u.maxHp - 0.5, y, 1, h);
+    const step = u.maxHp > 12 ? 2 : 1;                        // one notch per HP (per 2 HP for big units)
+    for (let i = step; i < u.maxHp; i += step) ctx.fillRect(x + w * i / u.maxHp - 0.5, y, 1, h);
     const tc = TEAM[u.team];
     ctx.fillStyle = `rgb(${tc[0] + 60},${tc[1] + 60},${tc[2] + 60})`; ctx.fillRect(x - 1.5, y - 1.5, 3, h + 3);   // team tick
     ctx.font = '600 9px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
@@ -557,7 +647,17 @@
       ctx.fillStyle = 'rgba(200,50,40,0.18)'; ctx.fill();
       ctx.strokeStyle = 'rgba(230,80,60,0.9)'; ctx.lineWidth = 2 / Math.max(z, 0.6); ctx.stroke();
     }
+    if (dmActive() && hover && (placing || dragUnit)) {
+      const free = !unitAt(hover) || unitAt(hover) === dragUnit;
+      ctx.beginPath(); hexPath(hover[0], hover[1], ctx);
+      ctx.fillStyle = free ? 'rgba(178,146,64,0.22)' : 'rgba(200,50,40,0.22)'; ctx.fill();
+      ctx.strokeStyle = free ? 'rgba(220,190,100,0.9)' : 'rgba(230,80,60,0.9)'; ctx.lineWidth = 2 / Math.max(z, 0.6); ctx.stroke();
+    }
     drawUnits(t);
+    if (dmActive() && placing && hover && !unitAt(hover)) {
+      const m = center(...hover); ctx.save(); ctx.globalAlpha = 0.5;
+      drawMesh(ctx, meshFor(placing.type, placing.team), m.x + OX, m.y + OY, placing.team === 'blue' ? Math.PI / 2 : -Math.PI / 2, t, 0); ctx.restore();
+    }
   }
   let last = performance.now();
   function loop(now) { now = now || performance.now(); const dt = Math.min(0.05, (now - last) / 1000); last = now;
@@ -565,7 +665,22 @@
 
   // ---------- Online: players & sync (room capability) ----------
   // Each player's presence carries the latest shared game state; the highest seq wins.
-  let resetArmed = 0, lastTurnHtml = '', lastNetHtml = '';
+  let resetArmed = 0, lastTurnHtml = '', lastNetHtml = '', placing = null, dragUnit = null;
+  // Dungeon Master: in online games the host is the DM (enemy side), the friend plays the heroes
+  function updateSeat() { if (mode === 'online' && p2p.role) mySeat = game.dm ? (p2p.role === 'host' ? 'red' : 'blue') : (p2p.role === 'host' ? 'blue' : 'red'); }
+  const isHost = () => mode === 'local' || p2p.role === 'host' || (room && mode === 'online' && mySeat === (game.dm ? 'red' : 'blue'));
+  const dmActive = () => game.dm && isHost();
+  function toggleDM() {
+    if (!isHost()) { toast('Only the host can switch Dungeon Master mode'); return; }
+    if (busy()) return;
+    game.dm = !game.dm; placing = null; selUnit = null; sel = null;
+    updateSeat(); commit({ type: 'edit' });
+    toast(game.dm ? (mode === 'online' ? 'Dungeon Master mode ON · you are the DM, your friend plays the heroes' : 'Dungeon Master mode ON') : 'Dungeon Master mode OFF');
+  }
+  function removeSelected() {
+    if (!dmActive() || !selUnit || busy()) return;
+    units = units.filter(u => u !== selUnit); selUnit = null; sel = null; commit({ type: 'edit' });
+  }
   let room = null, mode = 'local', mySeat = null, peerList = [], lastRemote = null;
   const netEl = document.getElementById('net');
   function publish(last) {
@@ -584,6 +699,7 @@
   function p2pSetup(c, seat) {
     if (seat === 'red') p2p.needSync = true;                          // guest waits for the host's game
     c.on('open', () => { p2p.conn = c; p2p.status = ''; mode = 'online'; mySeat = seat; selUnit = null; sel = null;
+      updateSeat(); refreshUI();
       if (seat === 'blue') publish(null); else try { c.send({ hello: 1 }); } catch (e) {}   // ask the host for its game
       refreshUI(); });
     c.on('data', d => { if (!d || typeof d !== 'object') return; if (d.hello && seat === 'blue') publish(null); if (d.g) onRemoteState(d.g); });
@@ -621,7 +737,8 @@
         : 'Connection error (' + e.type + ') · check internet / firewall and try again'); });
   }
   function commit(action) {
-    game.seq += 1; if (action.type === 'end') endTurnLocal(); publish({ ...action, seq: game.seq }); saveLocal(); refreshUI();
+    game.seq += 1; if (action.type === 'end') endTurnLocal();
+    if (action.type === 'attack') game.battle = true; if (action.type === 'edit') game.battle = false; publish({ ...action, seq: game.seq }); saveLocal(); refreshUI();
     // hand the turn over automatically once every unit of this side has nothing left to do
     if (action.type !== 'end' && !winner() && sideDone(game.turn)) setTimeout(() => { if (!busy() && !winner() && sideDone(game.turn) && myTurn()) commit({ type: 'end' }); }, 700);
   }
@@ -640,7 +757,7 @@
   function onRemoteState(st) {
     if (!validState(st)) return;
     if (p2p.needSync) { p2p.needSync = false; if (busy()) { lastRemote = null; } floats = []; selUnit = null; sel = null; applyState(st); toast('Joined the host\'s game'); return; }
-    if (st.seq <= game.seq) return;
+    if (st.seq < game.seq || (st.seq === game.seq && p2p.role !== 'join')) return;   // on a tie the host's game wins
     if (busy()) { lastRemote = st; return; }                 // finish current animation first
     const a = st.last;
     if (a && a.seq === st.seq && st.seq === game.seq + 1 && (a.type === 'move' || a.type === 'attack')) {
@@ -676,20 +793,33 @@
 
   function refreshUI() {
     selEl.textContent = fmt(sel);
-    infoEl.textContent = selUnit ? `${TEAM_NAME[selUnit.team]} ${selUnit.name} · HP ${selUnit.hp}/${selUnit.maxHp} · Damage ${selUnit.dmg} · Move ${selUnit.move}` +
+    infoEl.textContent = selUnit ? `${teamName(selUnit.team)} ${selUnit.name} · HP ${selUnit.hp}/${selUnit.maxHp} · Damage ${selUnit.dmg} · Move ${selUnit.move}` +
       (selUnit.team === game.turn ? ` · ${selUnit.attacked ? 'done' : selUnit.moved ? 'can still attack' : 'ready'}` : '') : '';
     const w = winner();
-    const turnHtml = w ? `<b style="color:rgb(${TEAM[w].map(c => c + 70)})">${TEAM_NAME[w]} wins!</b> · press R twice for a new game`
-      : `Round ${game.round} · <b style="color:rgb(${TEAM[game.turn].map(c => c + 70)})">${TEAM_NAME[game.turn]}'s turn</b>` +
+    const turnHtml = w ? `<b style="color:rgb(${TEAM[w].map(c => c + 70)})">${teamName(w)} wins!</b> · press R twice for a new game`
+      : `Round ${game.round} · <b style="color:rgb(${TEAM[game.turn].map(c => c + 70)})">${poss(teamName(game.turn))} turn</b>` +
         (mode === 'online' ? (myTurn() ? ' · your move' : ' · waiting for opponent') : '');
     if (Date.now() - resetArmed > 2000 && lastTurnHtml !== turnHtml) { lastTurnHtml = turnHtml; turnEl.innerHTML = turnHtml; }
+    const bdm = document.getElementById('bdm'), dmEl = document.getElementById('dm');
+    const dmLbl = `🧙 Dungeon Master: ${game.dm ? 'On' : 'Off'}`; if (bdm.textContent !== dmLbl) bdm.textContent = dmLbl;
+    bdm.classList.toggle('on', !!game.dm); bdm.disabled = !isHost();
+    if (dmActive()) {
+      const pb = (type, team, label) => `<button data-place="${type}:${team}" class="${placing && placing.type === type && placing.team === team ? 'on' : ''}">${label}</button>`;
+      const html = `<div class="t">🧙 Dungeon Master tools</div>
+        <div class="row"><span class="lbl">Heroes</span>${pb('knight', 'blue', 'Knight')}${pb('swordsman', 'blue', 'Swordsman')}</div>
+        <div class="row"><span class="lbl">Enemies</span>${pb('swordsman', 'red', 'Swordsman')}${pb('knight', 'red', 'Knight')}</div>
+        <div class="row"><button data-act="remove" ${selUnit ? '' : 'disabled'}>Remove selected (Del)</button></div>
+        <div class="k">${placing ? 'Click empty tiles to place · Esc to stop' : 'Pick a unit above, then click tiles to place it.<br>Drag any unit to move it anywhere.'}</div>`;
+      if (dmEl.dataset.h !== html) { dmEl.dataset.h = html; dmEl.innerHTML = html; }
+      dmEl.style.display = 'block';
+    } else { dmEl.style.display = 'none'; placing = null; }
     // team panels: units that still have their turn
     for (const team of ['blue', 'red']) {
       const el = document.getElementById(team === 'blue' ? 'tb' : 'tr'), alive = units.filter(u => u.team === team && u.dying === null);
       const active = team === game.turn && !w, left = active ? alive.filter(u => !unitDone(u)).length : alive.length;
       const pips = alive.map(u => `<span class="pip ${!active ? 'on' : unitDone(u) ? '' : u.moved ? 'half' : 'on'}"></span>`).join('');
       const you = mode === 'online' && mySeat === team ? ' (you)' : '';
-      const html = `<span class="nm" style="color:rgb(${TEAM[team].map(v => v + 80)})">${TEAM_NAME[team]}${you}</span> · ` +
+      const html = `<span class="nm" style="color:rgb(${TEAM[team].map(v => v + 80)})">${teamName(team)}${you}</span> · ` +
         (active ? `${left}/${alive.length} units left to act` : `${alive.length} unit${alive.length === 1 ? '' : 's'} · waiting`) + `<span class="pips">${pips}</span>`;
       if (el.dataset.h !== html) { el.dataset.h = html; el.innerHTML = html; }
       el.classList.toggle('active', active); el.style.setProperty('--tc', `rgb(${TEAM[team].map(v => v + 60)})`);
@@ -699,7 +829,7 @@
       seenTurn = game.turn; const c = `rgb(${TEAM[game.turn].map(v => v + 40)})`;
       topEl.style.setProperty('--tc', c); topEl.classList.remove('pulse'); void topEl.offsetWidth; topEl.classList.add('pulse');
       flashEl.style.color = `rgb(${TEAM[game.turn].map(v => v + 90)})`;
-      flashEl.textContent = mode === 'online' ? (myTurn() ? 'YOUR TURN' : `${TEAM_NAME[game.turn].toUpperCase()}'S TURN`) : `${TEAM_NAME[game.turn].toUpperCase()}'S TURN`;
+      flashEl.textContent = mode === 'online' ? (myTurn() ? 'YOUR TURN' : `${poss(teamName(game.turn)).toUpperCase()} TURN`) : `${poss(teamName(game.turn)).toUpperCase()} TURN`;
       flashEl.classList.remove('show'); void flashEl.offsetWidth; flashEl.classList.add('show');
     }
     // big victory banner for 4 seconds
@@ -707,14 +837,14 @@
       seenWinner = w; clearTimeout(vicTimer);
       if (w) {
         const n = document.getElementById('vname');
-        n.textContent = mode === 'online' ? `${TEAM_NAME[w]} wins${w === mySeat ? ' · you' : ''}` : `${TEAM_NAME[w]} wins`;
+        n.textContent = mode === 'online' ? `${teamName(w)} wins${w === mySeat ? ' · you' : ''}` : `${teamName(w)} wins`;
         n.style.color = `rgb(${TEAM[w].map(v => v + 80)})`;
         vicEl.classList.add('show'); vicTimer = setTimeout(() => vicEl.classList.remove('show'), 4000);
       } else { vicEl.classList.remove('show'); seenTurn = game.turn; }
     }
     if (!room) {                                           // direct-connection panel
       let html;
-      if (p2p.conn) html = `<div>🟢 Connected to your friend · you are <b style="color:rgb(${TEAM[mySeat].map(c => c + 70)})">${TEAM_NAME[mySeat]}</b></div>
+      if (p2p.conn) html = `<div>🟢 Connected to your friend · you are <b style="color:rgb(${TEAM[mySeat].map(c => c + 70)})">${teamName(mySeat)}</b></div>
         <div class="seats"><button data-act="leave">Disconnect</button></div>`;
       else if (p2p.role === 'host') html = `<div>Game code: <b style="font-size:17px;letter-spacing:2px;color:#f0e2a8">${p2p.ready ? p2p.code : '·····'}</b></div>
         <div class="k">${p2p.status}</div><div class="seats"><button data-act="leave">Cancel</button></div>`;
@@ -751,6 +881,13 @@
 
   function endTurn() { if (winner() || !myTurn() || busy()) return; commit({ type: 'end' }); }
   document.getElementById('bsave').addEventListener('click', saveFile);
+  document.getElementById('bdm').addEventListener('click', toggleDM);
+  document.getElementById('dm').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.place) { const [type, team] = b.dataset.place.split(':'); placing = placing && placing.type === type && placing.team === team ? null : { type, team }; selUnit = null; sel = null; }
+    if (b.dataset.act === 'remove') removeSelected();
+    refreshUI();
+  });
   document.getElementById('bload').addEventListener('click', () => document.getElementById('fload').click());
   document.getElementById('fload').addEventListener('change', e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; });
   function resetGame() {
@@ -761,25 +898,45 @@
 
   // ---------- Input ----------
   let down = null, dragging = false;
-  cv.addEventListener('pointerdown', e => { if (e.button !== 0) return; down = { x: e.clientX, y: e.clientY, ox: off.x, oy: off.y }; dragging = false; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    const h = pick(e.clientX, e.clientY), u = unitAt(h);
+    down = { x: e.clientX, y: e.clientY, ox: off.x, oy: off.y, grab: dmActive() && !placing && u && !busy() ? u : null };
+    dragging = false; cv.setPointerCapture(e.pointerId);
+  });
   cv.addEventListener('pointermove', e => {
     if (down) {
       const dx = e.clientX - down.x, dy = e.clientY - down.y;
-      if (!dragging && Math.hypot(dx, dy) > 4) { dragging = true; cv.classList.add('drag'); }
-      if (dragging) { off.x = down.ox + dx; off.y = down.oy + dy; }
+      if (!dragging && Math.hypot(dx, dy) > 4) { dragging = true; cv.classList.add('drag'); if (down.grab) dragUnit = down.grab; }
+      if (dragging && dragUnit) dragUnit.dragPos = { x: (e.clientX - off.x) / z, y: (e.clientY - off.y) / z + 10 };
+      else if (dragging) { off.x = down.ox + dx; off.y = down.oy + dy; }
     }
     const h = pick(e.clientX, e.clientY);
     if (fmt(h) !== fmt(hover)) { hover = h; hovEl.textContent = fmt(h); }
-    if (selUnit && canCommand(selUnit) && !dragging && !busy()) {
+    if (selUnit && canCommand(selUnit) && !dragging && !busy() && !placing) {
       const m = center(selUnit.col, selUnit.row), bx = (e.clientX - off.x) / z - OX - m.x, by = ((e.clientY - off.y) / z - OY - m.y) / SQ;
       if (Math.hypot(bx, by) > 4) selUnit.want = Math.atan2(bx, by);
     }
   });
   cv.addEventListener('pointerup', e => {
-    if (down && !dragging) {
-      const h = pick(e.clientX, e.clientY);
-      sel = (h && sel && h[0] === sel[0] && h[1] === sel[1]) ? null : h;
-      selUnit = unitAt(sel) || null; refreshUI();
+    const h = pick(e.clientX, e.clientY);
+    if (dragUnit) {                                          // DM: drop the dragged unit
+      const u = dragUnit; dragUnit = null; u.dragPos = null;
+      const o = unitAt(h);
+      if (h && (!o || o === u) && dmActive()) { [u.col, u.row] = h; selUnit = u; sel = h; commit({ type: 'edit' }); }
+      else if (h) toast('That tile is taken');
+    } else if (down && !dragging) {
+      if (placing && dmActive()) {                         // DM: place a new unit
+        if (h && !unitAt(h)) {
+          const T = UNIT_TYPES[placing.type];
+          units.push(runtimeUnit({ id: placing.type[0] + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), type: placing.type,
+            team: placing.team, col: h[0], row: h[1], hp: T.maxHp, face: placing.team === 'blue' ? Math.PI / 2 : -Math.PI / 2, moved: false, attacked: false }));
+          commit({ type: 'edit' });
+        } else if (h) toast('That tile is taken');
+      } else {
+        sel = (h && sel && h[0] === sel[0] && h[1] === sel[1]) ? null : h;
+        selUnit = unitAt(sel) || null; refreshUI();
+      }
     }
     down = null; dragging = false; cv.classList.remove('drag');
   });
@@ -798,7 +955,8 @@
     if (e.repeat) return;
     const k = e.key.toLowerCase();
     if (k === 'r') resetGame();
-    if (k === 'escape') { sel = null; selUnit = null; refreshUI(); }
+    if (k === 'escape') { if (placing) { placing = null; refreshUI(); return; } sel = null; selUnit = null; refreshUI(); }
+    if (k === 'delete' || k === 'backspace') removeSelected();
     if (k === ' ') { e.preventDefault(); endTurn(); }
     if (k === 'tab') {                                       // cycle through your units that can still act
       e.preventDefault();
