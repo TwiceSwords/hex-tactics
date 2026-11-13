@@ -51,7 +51,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div class="t">Hex Board · prototype v0.19</div>
+  <div class="t">Hex Board · prototype v0.20</div>
   <div>Hex: <span id="hov">–</span> &nbsp; Selected: <span id="sel">–</span></div>
   <div id="info" style="color:#e2d6a6"></div>
   <div class="k">Drag: pan · Wheel: zoom · Left-click: select · Esc: deselect</div>
@@ -580,31 +580,27 @@
   }
   // health bar above the head: one segment per HP
   function drawHealth(u, bx, by) {
-    const w = S * 0.95, h = 6, x = bx - w / 2, y = by - 17.6 * CE * K - 22, f = Math.max(0, u.hpShown / u.maxHp);
+    const w = S * 0.95, h = 6, x = bx - w / 2, y = by - 17.6 * CE * K - 22;
     const hasTurn = u.team === game.turn && u.dying === null && !winner() && !unitDone(u);
-    const bars = [['sta', 'staMax', '#3f9a4a', '#8fd08f'], ['mana', 'manaMax', '#3a64b8', '#9cb8f0']].filter(b => u[b[1]] > 0);
-    const sh = h / 2, total = h + bars.length * (sh + 2);
+    const rows = [['sta', 'staMax', '#4fb35a', 'rgba(79,179,90,0.28)'], ['mana', 'manaMax', '#4a7fe0', 'rgba(74,127,224,0.28)']].filter(b => u[b[1]] > 0);
+    const rh = 5, total = h + (rows.length ? 2 + rows.length * rh : 0);
     ctx.fillStyle = 'rgba(8,10,6,0.85)'; ctx.fillRect(x - 1.5, y - 1.5, w + 3, total + 3);
-    // health
-    ctx.fillStyle = '#2a1c16'; ctx.fillRect(x, y, w, h);
-    const hue = Math.round(120 * f);                       // green -> yellow -> red as HP drops
-    ctx.fillStyle = `hsl(${hue},55%,42%)`; ctx.fillRect(x, y, w * f, h);
-    ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(x, y, w * f, h / 2.5);
+    // health: always red, notched
+    const f = Math.max(0, u.hpShown / u.maxHp);
+    ctx.fillStyle = '#2a1414'; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#b8302c'; ctx.fillRect(x, y, w * f, h);
+    ctx.fillStyle = 'rgba(255,200,190,0.22)'; ctx.fillRect(x, y, w * f, h / 2.5);
     ctx.fillStyle = 'rgba(8,10,6,0.7)';
     const step = Math.max(1, Math.ceil(u.maxHp / 14));         // about 12-14 notches, whatever the max HP
     for (let i = step; i < u.maxHp; i += step) ctx.fillRect(x + w * i / u.maxHp - 0.5, y, 1, h);
-    // stamina (green) then mana (blue): half as thick, colour never changes
-    ctx.font = '700 7px system-ui,sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    bars.forEach(([cur, max, col, txt], i) => {
-      const yy = y + h + 2 + i * (sh + 2), v = Math.max(0, Math.min(u[cur], u[max]));
-      ctx.fillStyle = '#16201a'; ctx.fillRect(x, yy, w, sh);
-      ctx.fillStyle = col; ctx.fillRect(x, yy, w * v / u[max], sh);
-      ctx.fillStyle = 'rgba(8,10,6,0.7)';
-      if (u[max] <= 20) for (let k = 1; k < u[max]; k++) ctx.fillRect(x + w * k / u[max] - 0.5, yy, 1, sh);
-      const right = cur === 'sta', tx = right ? x + w + 4 : x - 5;      // stamina number on the right, mana on the left
-      ctx.textAlign = right ? 'left' : 'right';
-      ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fillText(`${u[cur]}/${u[max]}`, tx + 0.5, yy + sh / 2 + 0.5);
-      ctx.fillStyle = txt; ctx.fillText(`${u[cur]}/${u[max]}`, tx, yy + sh / 2);
+    // stamina (green) and mana (blue) as small dots: filled = available, faint = spent
+    rows.forEach(([cur, max, on, offc], ri) => {
+      const n = u[max], v = Math.max(0, Math.min(u[cur], n)), cy = y + h + 2 + ri * rh + rh / 2;
+      const gap = Math.min(5, (w - 2) / Math.max(1, n)), r = Math.min(1.7, gap * 0.36), x0 = x + 1 + gap / 2;
+      for (let k = 0; k < n; k++) {
+        ctx.beginPath(); ctx.arc(x0 + k * gap, cy, r, 0, 7);
+        ctx.fillStyle = k < v ? on : offc; ctx.fill();
+      }
     });
     const tc = TEAM[u.team];
     ctx.fillStyle = `rgb(${tc[0] + 60},${tc[1] + 60},${tc[2] + 60})`; ctx.fillRect(x - 1.5, y - 1.5, 3, total + 3);   // team tick
