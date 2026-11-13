@@ -52,7 +52,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div class="t">Hex Board · prototype v0.22</div>
+  <div class="t">Hex Board · prototype v0.23</div>
   <div>Hex: <span id="hov">–</span> &nbsp; Selected: <span id="sel">–</span></div>
   <div id="info" style="color:#e2d6a6"></div>
   <div class="k">Drag: pan · Wheel: zoom · Left-click: select · Esc: deselect</div>
@@ -585,18 +585,18 @@
   function drawHealth(u, bx, by) {
     const w = U * 0.95, h = 6, x = bx - w / 2, y = by - 17.6 * CE * K - 22;
     const hasTurn = u.team === game.turn && u.dying === null && !winner() && !unitDone(u);
-    const rows = [['sta', 'staMax', '#4fb35a', 'rgba(79,179,90,0.28)'], ['mana', 'manaMax', '#4a7fe0', 'rgba(74,127,224,0.28)']].filter(b => u[b[1]] > 0 && hasRes(u));
+    const rows = [['mana', 'manaMax', '#4a7fe0', 'rgba(74,127,224,0.28)']].filter(b => u[b[1]] > 0 && hasRes(u));
     const rh = 5, total = h + (rows.length ? 2 + rows.length * rh : 0);
     ctx.fillStyle = 'rgba(8,10,6,0.85)'; ctx.fillRect(x - 1.5, y - 1.5, w + 3, total + 3);
-    // health: always red, notched
+    // health: always green, notched
     const f = Math.max(0, u.hpShown / u.maxHp);
-    ctx.fillStyle = '#2a1414'; ctx.fillRect(x, y, w, h);
-    ctx.fillStyle = '#b8302c'; ctx.fillRect(x, y, w * f, h);
-    ctx.fillStyle = 'rgba(255,200,190,0.22)'; ctx.fillRect(x, y, w * f, h / 2.5);
+    ctx.fillStyle = '#16241a'; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#3f9a45'; ctx.fillRect(x, y, w * f, h);
+    ctx.fillStyle = 'rgba(210,255,200,0.2)'; ctx.fillRect(x, y, w * f, h / 2.5);
     ctx.fillStyle = 'rgba(8,10,6,0.7)';
     const step = Math.max(1, Math.ceil(u.maxHp / 14));         // about 12-14 notches, whatever the max HP
     for (let i = step; i < u.maxHp; i += step) ctx.fillRect(x + w * i / u.maxHp - 0.5, y, 1, h);
-    // stamina (green) and mana (blue) as small dots: filled = available, faint = spent
+    // mana (blue) as small dots: filled = available, faint = spent
     rows.forEach(([cur, max, on, offc], ri) => {
       const n = u[max], v = Math.max(0, Math.min(u[cur], n)), cy = y + h + 2 + ri * rh + rh / 2;
       const gap = Math.min(5, (w - 2) / Math.max(1, n)), r = Math.min(1.7, gap * 0.36), x0 = x + 1 + gap / 2;
@@ -849,18 +849,16 @@
         <div class="row"><span class="lbl">Heroes</span>${pb('knight', 'blue', 'Knight')}${pb('swordsman', 'blue', 'Swordsman')}</div>
         <div class="row"><span class="lbl">Enemies</span>${pb('swordsman', 'red', 'Swordsman')}${pb('knight', 'red', 'Knight')}</div>
         <div class="row"><button data-act="heal">❤ Heal all heroes</button></div>
-        <div class="sub">Unit types · values for new units (stamina &amp; mana: hero units only)</div>
-        <table class="st"><tr><th></th><th>HP</th><th>Stamina</th><th>Mana</th></tr>
+        <div class="sub">Unit types · values for new units (mana: hero units only)</div>
+        <table class="st"><tr><th></th><th>HP</th><th>Mana</th></tr>
         ${['knight', 'swordsman'].map(ty => `<tr><td>${UNIT_TYPES[ty].name}</td>
           <td><input type="number" min="1" max="999" data-type="${ty}" value="${typeMax(ty)}"></td>
-          ${UNIT_TYPES[ty].hero ? `<td><input type="number" min="0" max="99" data-type="${ty}" data-stat="staMax" value="${typeStat(ty, 'staMax')}"></td>
-          <td><input type="number" min="0" max="99" data-type="${ty}" data-stat="manaMax" value="${typeStat(ty, 'manaMax')}"></td>` : '<td class="na">–</td><td class="na">–</td>'}</tr>`).join('')}</table>
+          ${UNIT_TYPES[ty].hero ? `<td><input type="number" min="0" max="99" data-type="${ty}" data-stat="manaMax" value="${typeStat(ty, 'manaMax')}"></td>` : '<td class="na">–</td>'}</tr>`).join('')}</table>
         ${selUnit ? `<div class="sub">Selected: ${teamName(selUnit.team)} ${selUnit.name}</div>
         <table class="st"><tr><th></th><th>Current</th><th>Max</th></tr>
           <tr><td>HP</td><td><input type="number" min="1" max="999" data-unit="hp" value="${selUnit.hp}"></td><td><input type="number" min="1" max="999" data-unit="max" value="${selUnit.maxHp}"></td></tr>
-          ${hasRes(selUnit) ? `<tr><td>Stamina</td><td><input type="number" min="0" max="99" data-unit="sta" value="${selUnit.sta}"></td><td><input type="number" min="0" max="99" data-unit="staMax" value="${selUnit.staMax}"></td></tr>
-          <tr><td>Mana</td><td><input type="number" min="0" max="99" data-unit="mana" value="${selUnit.mana}"></td><td><input type="number" min="0" max="99" data-unit="manaMax" value="${selUnit.manaMax}"></td></tr>` : ''}</table>
-        <div class="row"><button data-act="remove">Remove</button></div>` : '<div class="sub">Click a unit to edit its HP, stamina and mana</div>'}
+          ${hasRes(selUnit) ? `          <tr><td>Mana</td><td><input type="number" min="0" max="99" data-unit="mana" value="${selUnit.mana}"></td><td><input type="number" min="0" max="99" data-unit="manaMax" value="${selUnit.manaMax}"></td></tr>` : ''}</table>
+        <div class="row"><button data-act="remove">Remove</button></div>` : '<div class="sub">Click a unit to edit its HP and mana</div>'}
         <div class="k">${placing ? 'Click empty tiles to place · Esc to stop' : 'Pick a unit above, then click tiles to place it.<br>Drag any unit to move it · Del removes the unit under the mouse.'}</div>`;
       if (dmEl.dataset.h !== html) { dmEl.dataset.h = html; dmEl.innerHTML = html; }
       dmEl.style.display = 'block';
