@@ -54,7 +54,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div class="t">Hex Board · prototype v0.26</div>
+  <div class="t">Hex Board · prototype v0.27</div>
   <div>Hex: <span id="hov">–</span> &nbsp; Selected: <span id="sel">–</span></div>
   <div id="info" style="color:#e2d6a6"></div>
   <div class="k">Drag / WASD: move camera · Wheel: zoom · Left-click: select · Esc: deselect</div>
@@ -607,7 +607,7 @@
     crossbow:    { name: 'Crossbowman',  maxHp: 6,  dmg: 6, move: 2, h: 17.6, ranged: 'line', range: 5, noMoveShoot: true, push: true, build: buildCrossbowman },
     horseman:    { name: 'Horseman',     maxHp: 20, dmg: 3, move: 4, h: 20.5, mounted: true, build: buildHorseman },
     lancer:      { name: 'Lancer',       maxHp: 18, dmg: 3, move: 4, h: 20.5, mounted: true, charge: 6, build: buildLancer },
-    horsearcher: { name: 'Horse archer', maxHp: 9,  dmg: 2, move: 4, h: 20.5, mounted: true, ranged: 'arc', range: 4, build: buildHorseArcher },
+    horsearcher: { name: 'Horse archer', maxHp: 9,  dmg: 2, move: 4, h: 20.5, mounted: true, ranged: 'arc', range: 5, build: buildHorseArcher },
     trebuchet:   { name: 'Trebuchet',    maxHp: 6,  dmg: 20, move: 1, h: 16, ranged: 'mark', range: 8, noMoveShoot: true, build: buildTrebuchet },
     ballista:    { name: 'Ballista',     maxHp: 6,  dmg: 12, move: 1, h: 9, ranged: 'pierce', range: 8, noMoveShoot: true, build: buildBallista },
   };
@@ -828,7 +828,10 @@
       moveUnit(u, lane, () => {
         u.fast = false;
         const stunned = antiCharge(u, lane.length ? lane : [here()], tgt);
-        if (tgt) { faceToward(u, tgt); u.atk = { target: tgt, t: 0, hit: false, onHit: () => { hitUnit(tgt, u.dmg * 2); stunUnit(tgt); if (stunned) stunUnit(u); } }; }
+        if (tgt) { faceToward(u, tgt); u.atk = { target: tgt, t: 0, hit: false, onHit: () => {
+          if (T(tgt).antiCav) hitUnit(tgt, u.dmg);                 // spears & halberds brace: only base damage, no stun
+          else { hitUnit(tgt, u.dmg * 2); stunUnit(tgt); }
+          if (stunned) stunUnit(u); } }; }
         else if (stunned) stunUnit(u);
       });
       return;
@@ -1128,7 +1131,7 @@
       const lane = []; let first = null;
       for (const h of lineTiles(here, ld.d, ty.charge)) { const o = liveUnitAt(h); if (o) { first = o; break; } lane.push(h); }
       lane.forEach(h => tintHex(h, 'rgba(240,170,60,0.22)'));
-      if (first) { outlineHex([first.col, first.row], 'rgba(255,70,50,0.95)', 4); label(first, `CHARGE -${u.dmg * 2} · STUN`, first.team === u.team ? '#ffd27a' : '#ffb4a0'); }
+      if (first) { outlineHex([first.col, first.row], 'rgba(255,70,50,0.95)', 4); label(first, T(first).antiCav ? `CHARGE -${u.dmg} (braced)` : `CHARGE -${u.dmg * 2} · STUN`, first.team === u.team ? '#ffd27a' : '#ffb4a0'); }
       if (antiCharge(u, lane.length ? lane : [here], first)) label(u, '⚠ spears: lancer stunned', '#ffd27a');
       return;
     }
