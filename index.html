@@ -38,7 +38,7 @@
   .card{width:228px;min-height:170px;background:linear-gradient(#2a2619,#1b1a12);border:1px solid #6b5d36;border-radius:8px;padding:10px 11px;cursor:pointer;display:flex;flex-direction:column;gap:6px;position:relative}
   .card.passive{background:linear-gradient(#1f2a2e,#151c1f);border-color:#4d6a75}.card.empty{opacity:.65;border-style:dashed;justify-content:center;text-align:center}
   .card:hover{filter:brightness(1.15)}.card.armed{box-shadow:0 0 0 2px #7fd1ff,0 0 14px #4fb3ff;border-color:#7fd1ff}
-  .card .ct{font-weight:700;color:#f0e2a8;font-size:17px;display:flex;flex-direction:column;gap:3px}.card .lv{font-size:15px;letter-spacing:1px}.card .lv .wilt{opacity:.85;filter:saturate(.55)}
+  .card .ct{font-weight:700;color:#f0e2a8;font-size:17px;display:flex;flex-direction:column;gap:3px}.card .lv{display:flex;gap:2px}.card .lv svg{filter:drop-shadow(0 0 1px rgba(255,255,255,.35))}
   .card .mc{align-self:flex-start;background:#2e4f8f;color:#dfe9ff;border-radius:5px;padding:2px 8px;font-size:14px;font-weight:600}.card .mc.pas{background:#3d5560}
   .card .cd{color:#e2e4d6;line-height:1.45;font-size:15px}.card .nx{color:#a3aa94;font-size:13px;line-height:1.4}.card button{margin-top:auto;font-size:14px;padding:5px 8px}
   #teams .team button{pointer-events:auto;font-size:11px;padding:0 6px;margin-left:4px}#teams{pointer-events:none}
@@ -63,7 +63,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div class="t">Hex Board · prototype v0.29</div>
+  <div class="t">Hex Board · prototype v0.30</div>
   <div>Hex: <span id="hov">–</span> &nbsp; Selected: <span id="sel">–</span></div>
   <div id="info" style="color:#e2d6a6"></div>
   <div class="k">Drag / WASD: move camera · Wheel: zoom · Left-click: select · Esc: deselect</div>
@@ -1553,7 +1553,8 @@
   function cardHtml(id, l, o = {}) {
     const c = CARDS[id];
     const cost = c.kind === 'skill' ? `<span class="mc">${c.cost(l)} mana</span>` : '<span class="mc pas">passive</span>';
-    const stars = c.kind === 'skill' ? `<span class="lv" title="Level ${l} of 5">${'🌹'.repeat(l)}${'<span class="wilt">🥀</span>'.repeat(5 - l)}</span>` : '';   // bloomed = levels earned, wilted = not yet
+    const star = on => `<svg width="17" height="17" viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z" fill="${on ? '#f2c230' : 'none'}" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+    const stars = c.kind === 'skill' ? `<span class="lv" title="Level ${l} of 5">${star(true).repeat(l)}${star(false).repeat(5 - l)}</span>` : '';   // yellow = levels earned, empty outline = not yet
     const next = c.kind === 'skill' && l < 5 ? `<div class="nx">Next (Lv ${l + 1}): ${c.text(l + 1)}${c.cost(l + 1) !== c.cost(l) ? ` · ${c.cost(l + 1)} mana` : ''}</div>` : '';
     return `<div class="card ${c.kind}${o.armed ? ' armed' : ''}"${o.slot !== undefined ? ` data-slot="${o.slot}"` : ''}>
       <div class="ct">${c.name}${stars}</div>${cost}<div class="cd">${c.text(l)}</div>${o.showNext ? next : ''}
