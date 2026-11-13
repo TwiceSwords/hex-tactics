@@ -21,15 +21,17 @@
   .team .nm{font-weight:700;letter-spacing:1px}
   .pips{display:inline-flex;gap:4px;margin-left:8px;vertical-align:middle}.pip{width:10px;height:10px;border-radius:2px;border:1px solid #b2924a;background:transparent}.pip.on{background:#b2924a}.pip.half{background:linear-gradient(90deg,#96783a 50%,transparent 50%)}
   #savebar{position:fixed;left:12px;bottom:14px;display:flex;gap:6px;align-items:center;background:rgba(10,12,8,.8);padding:7px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.07);font-size:12px;user-select:none}
+  #breset{background:linear-gradient(90deg,#8a3a2a var(--p,0%),#3b3524 var(--p,0%))}
   #savebar .k{color:#8f9682;margin-left:4px}
   #toast{position:fixed;left:50%;bottom:70px;transform:translateX(-50%);background:rgba(20,22,14,.92);color:#eadfb4;padding:8px 16px;border-radius:8px;border:1px solid #6b5d36;font-size:14px;opacity:0;pointer-events:none}
   #toast.show{animation:toast 2.6s ease-out}@keyframes toast{0%{opacity:0;transform:translate(-50%,8px)}10%{opacity:1;transform:translate(-50%,0)}75%{opacity:1}100%{opacity:0}}
-  #dm{position:fixed;left:12px;top:190px;background:rgba(10,12,8,.85);color:#c9cdbd;padding:10px 12px;border-radius:8px;font-size:13px;border:1px solid #6b5d36;user-select:none;display:none;width:270px}
+  #dm{position:fixed;left:12px;top:190px;background:rgba(10,12,8,.85);color:#c9cdbd;padding:10px 12px;border-radius:8px;font-size:13px;border:1px solid #6b5d36;user-select:none;display:none;width:290px;max-height:calc(100vh - 290px);overflow:auto}
   #dm .t{color:#e2d6a6;font-weight:700;margin-bottom:6px}#dm .row{display:flex;gap:6px;align-items:center;margin:5px 0}#dm .lbl{width:58px;color:#8f9682}
   #dm .sub{color:#c8b98a;font-size:12px;margin-top:9px;border-top:1px solid rgba(255,255,255,.08);padding-top:7px}
   #dm input{font:inherit;font-size:13px;width:52px;background:#1d2016;color:#eadfb4;border:1px solid #6b5d36;border-radius:6px;padding:3px 6px}
   #dm table.st{border-collapse:collapse;margin-top:4px}#dm .st th{font-weight:400;color:#8f9682;font-size:11px;text-align:left;padding:0 4px}#dm .st td{padding:2px 4px 2px 0}#dm .st input{width:48px}
   #dm .st td.na{color:#5d6354;text-align:center}
+  #dm .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin:6px 0}#dm .grid button{padding:4px 4px;font-size:12px}
   #dm .k{color:#8f9682;font-size:12px;margin-top:6px;line-height:1.5}
   #net{position:fixed;right:12px;top:12px;background:rgba(10,12,8,.8);color:#c9cdbd;padding:10px 12px;border-radius:8px;font-size:13px;border:1px solid rgba(255,255,255,.07);user-select:none}
   #net .seats{display:flex;gap:6px;margin-top:8px}
@@ -52,16 +54,16 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div class="t">Hex Board · prototype v0.25</div>
+  <div class="t">Hex Board · prototype v0.26</div>
   <div>Hex: <span id="hov">–</span> &nbsp; Selected: <span id="sel">–</span></div>
   <div id="info" style="color:#e2d6a6"></div>
-  <div class="k">Drag: pan · Wheel: zoom · Left-click: select · Esc: deselect</div>
+  <div class="k">Drag / WASD: move camera · Wheel: zoom · Left-click: select · Esc: deselect</div>
   <div class="k">Right-click: move / attack enemy · Tab: next unit</div>
-  <div class="k">Turn passes automatically · End turn / Space: end it early · R twice: new game</div>
+  <div class="k">Turn passes automatically · End turn / Space: end it early · hold ⟲ Reset 2 s: new game</div>
 </div>
 <div id="top"><span id="turn"></span><button id="endturn" title="Space">End turn</button></div>
 <div id="dm"></div>
-<div id="savebar"><button id="bdm">🧙 Dungeon Master: Off</button><button id="bsave" title="Ctrl+S">💾 Save file</button><button id="bload">📂 Load file</button><input type="file" id="fload" accept=".json,application/json" hidden><span class="k">autosaves in this browser</span></div>
+<div id="savebar"><button id="bdm">🧙 Dungeon Master: Off</button><button id="bsave" title="Ctrl+S">💾 Save file</button><button id="bload">📂 Load file</button><input type="file" id="fload" accept=".json,application/json" hidden><button id="breset" title="Hold for 2 seconds">⟲ Reset (hold)</button><span class="k">autosaves in this browser</span></div>
 <div id="toast"></div>
 <div id="teams"><div class="team" id="tb"></div><div class="team" id="tr"></div></div>
 <div id="flash"></div>
@@ -352,11 +354,214 @@
     return m;
   }
 
+  // ---------- More unit models (shared body parts) ----------
+  const C = { STEEL: [150,155,162], DSTEEL: [108,113,122], MAIL: [112,116,122], LEATHER: [86,60,38], DARK: [48,34,22],
+    CLOTH: [72,60,46], SKIN: [196,156,124], WOOD: [104,72,44], LWOOD: [140,104,64], GOLD: [196,160,72], ROPE: [170,150,110],
+    HORSE: [104,72,46], HORSE2: [70,52,38], MANE: [40,30,24], HOOF: [36,30,26], STRING: [210,200,170] };
+  function baseBody(m, team, { armor = C.MAIL, legs = C.CLOTH, tabard = true, shoulders = C.LEATHER } = {}) {
+    for (const sx of [-1, 1]) {
+      part(m, boxG(1.4, 2.1, 2.3), C.DARK, { p: [sx * 0.95, 0, 0.25] });
+      part(m, boxG(1.25, 6.2, 1.35), legs, { p: [sx * 0.95, 1.9, 0] });
+    }
+    part(m, boxG(4.0, 3.2, 2.6, 0.95, 0.95), armor, { p: [0, 6.3, 0] });
+    part(m, boxG(3.9, 5.0, 2.4, 1.12, 1.0), armor, { p: [0, 9.2, 0] });
+    part(m, boxG(4.25, 0.7, 2.75), C.LEATHER, { p: [0, 9.1, 0] });
+    if (tabard) { part(m, boxG(2.8, 6.6, 0.18, 1.05), team, { p: [0, 6.9, 1.27], bias: 1 }); part(m, boxG(2.8, 6.6, 0.18, 1.05), team, { p: [0, 6.9, -1.27] }); }
+    part(m, boxG(1.0, 0.8, 1.0), C.SKIN, { p: [0, 14.1, 0] });
+    part(m, boxG(1.6, 2.0, 1.75), C.SKIN, { p: [0, 14.6, 0.05] });
+    if (shoulders) for (const sx of [-1, 1]) part(m, boxG(1.5, 1.3, 2.6, 0.85, 0.9), shoulders, { p: [sx * 2.25, 13.0, 0] });
+  }
+  const helmNasal = m => { part(m, cylG(1.08, 1.25, 10, 1.0), C.STEEL, { p: [0, 15.55, 0.05] }); part(m, cylG(1.0, 0.9, 10, 0.12), C.STEEL, { p: [0, 16.8, 0.05] }); part(m, boxG(0.28, 1.3, 0.2), C.STEEL, { p: [0, 14.8, 0.98] }); };
+  const helmKettle = m => { part(m, cylG(2.1, 0.25, 12, 2.0), C.STEEL, { p: [0, 15.9, 0.05] }); part(m, cylG(1.1, 1.3, 10, 0.5), C.STEEL, { p: [0, 16.1, 0.05] }); };
+  const hood = (m, col) => { part(m, boxG(2.0, 2.4, 2.1, 0.75, 0.8), col, { p: [0, 14.5, -0.15] }); part(m, boxG(0.8, 1.0, 0.8, 0.2, 0.2), col, { r: [-0.5, 0, 0], p: [0, 16.7, -0.7] }); part(m, boxG(2.6, 1.2, 2.4), col, { p: [0, 13.2, 0] }); };
+  const bandana = (m, col) => { part(m, boxG(1.75, 0.6, 1.9), col, { p: [0, 15.9, 0.05] }); part(m, boxG(0.3, 1.4, 0.2), col, { r: [0.3, 0, 0], p: [0, 14.8, -1.0] }); };
+  // arm from a shoulder: returns hand position
+  function arm(m, S0, rU, rF, cU = C.MAIL, cF = C.LEATHER, lU = 3.6, lF = 3.0) {
+    const E = tip(S0, rU, lU), H = tip(E, rF, lF);
+    part(m, boxG(1.15, lU, 1.2), cU, { o: [0, -lU, 0], r: rU, p: S0 });
+    part(m, boxG(1.05, lF, 1.05), cF, { o: [0, -lF, 0], r: rF, p: E });
+    part(m, boxG(1.05, 0.95, 1.05), C.DARK, { o: [0, -0.5, 0], r: rF, p: H });
+    return H;
+  }
+  function roundShield(m, team, H, size = 1) {
+    const sh = [Math.PI / 2, 0.32, 0], sp = [H[0] - 0.4, H[1] + 0.9, H[2] + 0.35];
+    part(m, cylG(3.05 * size, 0.4, 16), C.WOOD, { r: sh, p: sp });
+    part(m, cylG(2.65 * size, 0.1, 16), team, { r: sh, p: add(sp, rot([0, 0.4, 0], sh)), bias: 1 });
+    part(m, cylG(0.75 * size, 0.55, 10, 0.3), C.STEEL, { r: sh, p: add(sp, rot([0, 0.45, 0], sh)), bias: 2 });
+  }
+
+  function buildSpearman(team) {
+    const m = { v: [], f: [] };
+    baseBody(m, team); helmNasal(m);
+    const rH = arm(m, [-2.35, 13.4, 0.1], [-0.2, 0, 0.15], [-1.25, 0, 0.1]);
+    const sp = [1.05, 0, 0];                                         // spear held forward and up
+    part(m, boxG(0.3, 17, 0.3), C.LWOOD, { o: [0, -6.5, 0], r: sp, p: rH });
+    part(m, boxG(0.6, 1.8, 0.14, 0.1), C.STEEL, { o: [0, 10.5, 0], r: sp, p: rH });
+    const lH = arm(m, [2.35, 13.4, 0.1], [-0.3, 0, -0.1], [-1.5, 0, 0], C.MAIL, C.LEATHER, 3.5, 2.3);
+    roundShield(m, team, lH, 0.85);
+    return m;
+  }
+  function buildHalberdier(team) {
+    const m = { v: [], f: [] };
+    baseBody(m, team, { armor: C.MAIL }); helmKettle(m);
+    const rH = arm(m, [-2.35, 13.4, 0.1], [-0.55, 0, 0.25], [-1.0, 0, 0.3]);
+    arm(m, [2.35, 13.4, 0.1], [-0.65, 0, -0.35], [-1.15, 0, -0.55]);
+    const hb = [0.38, 0, 0];                                        // halberd: long pole, axe blade, spike
+    part(m, boxG(0.32, 17, 0.32), C.LWOOD, { o: [0, -7.5, 0], r: hb, p: rH });
+    part(m, prismG([[0, 0], [2.1, 0.5], [2.1, 2.7], [0, 2.2]], 0.16), C.STEEL, { o: [0.15, 7.0, -0.08], r: hb, p: rH });
+    part(m, prismG([[0, 0.6], [-1.1, 1.3], [0, 1.6]], 0.16), C.STEEL, { o: [-0.15, 7.0, -0.08], r: hb, p: rH });
+    part(m, boxG(0.3, 2.2, 0.3, 0.1, 0.1), C.STEEL, { o: [0, 9.5, 0], r: hb, p: rH });
+    return m;
+  }
+  function buildSwordmaster(team) {
+    const m = { v: [], f: [] }, SASH = team.map(c => Math.min(255, c * 1.2 + 15));
+    baseBody(m, team, { armor: [92, 74, 56], legs: [52, 44, 38], tabard: false, shoulders: null });
+    part(m, boxG(4.3, 0.9, 2.8), SASH, { p: [0, 9.0, 0] });
+    part(m, boxG(1.1, 3.6, 0.2), SASH, { r: [0, 0, 0.2], p: [1.2, 5.6, 1.3], bias: 1 });
+    part(m, boxG(4.4, 0.7, 2.7), SASH, { r: [0, 0, 0.75], p: [-0.3, 10.2, 0.1] });
+    bandana(m, SASH);
+    const rH = arm(m, [-2.25, 13.2, 0.1], [-0.6, 0, -0.05], [-1.1, 0, -0.45], [180, 146, 118], C.LEATHER);
+    arm(m, [2.25, 13.2, 0.1], [-0.6, 0, 0.05], [-1.1, 0, 0.55], [180, 146, 118], C.LEATHER);
+    const gs = [0.55, 0, -0.35];                                    // two-handed greatsword held high
+    part(m, boxG(0.34, 2.6, 0.34), C.DARK, { o: [0, -1.3, 0], r: gs, p: rH });
+    part(m, boxG(2.6, 0.32, 0.45), C.GOLD, { o: [0, 1.3, 0], r: gs, p: rH });
+    part(m, boxG(0.55, 10.5, 0.14, 0.3), [205, 210, 218], { o: [0, 1.6, 0], r: gs, p: rH });
+    return m;
+  }
+  function buildArcher(team) {
+    const m = { v: [], f: [] }, HOOD = team.map(c => c * 0.75 + 15);
+    baseBody(m, team, { armor: [96, 78, 56], tabard: true, shoulders: null }); hood(m, HOOD);
+    part(m, boxG(1.3, 5.2, 1.3), C.LEATHER, { r: [0.2, 0, 0.35], p: [-0.8, 8.8, -1.6] });       // quiver
+    for (const dx of [-0.25, 0.2]) part(m, boxG(0.12, 1.4, 0.12), C.STRING, { r: [0.2, 0, 0.35], p: [-0.8 + dx - 1.7, 13.6, -2.4] });
+    const lH = arm(m, [2.3, 13.3, 0.1], [-1.35, 0, -0.1], [-1.45, 0, 0.05], [96, 78, 56], C.LEATHER);
+    arm(m, [-2.3, 13.3, 0.1], [-1.2, 0, 0.5], [-0.3, 0, 1.4], [96, 78, 56], C.LEATHER, 3.4, 2.6);
+    for (const [o, r] of [[[0, 0, 0], [0, 0, 0]], [[0, 2.6, 0], [-0.35, 0, 0]], [[0, -2.6, 0], [0.35, 0, 0]]])   // bow
+      part(m, boxG(0.28, 3.0, 0.28), C.WOOD, { o: [0, -1.5 + o[1], 0], r, p: add(lH, [0, 0, 0.4]) });
+    part(m, boxG(0.08, 7.6, 0.08), C.STRING, { o: [0, -3.8, 0], p: add(lH, [0, 0, -0.5]) });
+    return m;
+  }
+  function buildCrossbowman(team) {
+    const m = { v: [], f: [] };
+    baseBody(m, team, { armor: C.MAIL }); helmKettle(m);
+    const rH = arm(m, [-2.35, 13.4, 0.1], [-0.9, 0, 0.25], [-1.5, 0, 0.25]);
+    arm(m, [2.35, 13.4, 0.1], [-0.9, 0, -0.25], [-1.5, 0, -0.25]);
+    const cb = [Math.PI / 2, 0, 0], at = add(rH, [1.15, 0.3, -0.8]);   // crossbow held level, pointing forward
+    part(m, boxG(0.6, 6.0, 0.6), C.WOOD, { r: cb, p: at });
+    part(m, boxG(5.4, 0.4, 0.5, 1, 1), C.DSTEEL, { p: add(at, [0, 0.15, 5.2]) });
+    part(m, boxG(0.1, 0.1, 4.0), C.STRING, { r: [0, 0.6, 0], p: add(at, [-1.2, 0.4, 3.6]) });
+    part(m, boxG(0.1, 0.1, 4.0), C.STRING, { r: [0, -0.6, 0], p: add(at, [1.2, 0.4, 3.6]) });
+    return m;
+  }
+
+  // horse: returns where the rider sits
+  function horse(m, team, { coat = C.HORSE, barding = false } = {}) {
+    for (const [x, z] of [[-1.0, 2.6], [1.0, 2.6], [-1.0, -2.6], [1.0, -2.6]]) {
+      part(m, boxG(0.8, 5.0, 0.9), coat, { p: [x, 0.6, z] });
+      part(m, boxG(0.9, 0.6, 1.0), C.HOOF, { p: [x, 0, z] });
+    }
+    part(m, boxG(2.8, 3.2, 7.8, 0.95, 1), coat, { p: [0, 5.2, 0] });
+    part(m, boxG(1.6, 4.4, 1.9, 0.8, 0.9), coat, { r: [0.6, 0, 0], p: [0, 7.2, 3.3] });
+    part(m, boxG(1.3, 1.4, 3.0, 0.85, 0.9), coat, { r: [0.3, 0, 0], p: [0, 10.4, 5.0] });
+    part(m, boxG(0.35, 3.8, 1.0), C.MANE, { r: [0.6, 0, 0], p: [0, 8.2, 2.7] });
+    part(m, boxG(0.6, 3.6, 0.6, 0.6, 0.6), C.MANE, { r: [-0.45, 0, 0], p: [0, 4.6, -4.1] });
+    part(m, boxG(0.4, 0.8, 0.4), coat, { p: [-0.4, 11.6, 4.4] }); part(m, boxG(0.4, 0.8, 0.4), coat, { p: [0.4, 11.6, 4.4] });
+    if (barding) { part(m, boxG(3.1, 2.4, 6.4), team, { p: [0, 4.3, 0] }); part(m, boxG(1.7, 2.6, 1.9), team, { r: [0.6, 0, 0], p: [0, 6.6, 3.2] }); }
+    else part(m, boxG(3.0, 0.5, 2.6), team, { p: [0, 8.35, -0.2] });              // saddle cloth
+    part(m, boxG(2.0, 0.6, 2.2), C.LEATHER, { p: [0, 8.45, -0.2] });
+    return [0, 8.9, -0.3];
+  }
+  function rider(m, team, seat, { armor = C.MAIL, helm = helmNasal } = {}) {
+    const dy = seat[1] - 6.6;
+    for (const sx of [-1, 1]) {
+      part(m, boxG(1.2, 3.8, 1.3), C.CLOTH, { r: [0, 0, sx * 0.18], p: [sx * 1.5, seat[1] - 2.6, seat[2] + 0.4] });
+      part(m, boxG(1.3, 1.4, 2.0), C.DARK, { p: [sx * 1.85, seat[1] - 3.4, seat[2] + 0.8] });
+    }
+    part(m, boxG(3.8, 5.0, 2.3, 1.12, 1.0), armor, { p: [0, seat[1], seat[2]] });
+    part(m, boxG(2.7, 4.2, 0.18), team, { p: [0, seat[1] - 0.3, seat[2] + 1.22], bias: 1 });
+    part(m, boxG(4.1, 0.7, 2.6), C.LEATHER, { p: [0, seat[1], seat[2]] });
+    part(m, boxG(1.0, 0.8, 1.0), C.SKIN, { p: [0, seat[1] + 4.9, seat[2]] });
+    part(m, boxG(1.6, 2.0, 1.75), C.SKIN, { p: [0, seat[1] + 5.4, seat[2] + 0.05] });
+    const hm = { v: [], f: [] }; helm(hm);                          // helmet raised to the rider's head
+    for (const f of hm.f) { f.i = f.i.map(i => i + m.v.length); f.c += m.v.length; }
+    m.v.push(...hm.v.map(v => [v[0], v[1] + dy + 2.6 - 2.6 + (seat[1] + 5.4 - 14.6) - dy, v[2] + seat[2]])); m.f.push(...hm.f);
+    for (const sx of [-1, 1]) part(m, boxG(1.4, 1.2, 2.4, 0.85, 0.9), C.LEATHER, { p: [sx * 2.15, seat[1] + 3.8, seat[2]] });
+    return { rS: [-2.25, seat[1] + 4.2, seat[2] + 0.1], lS: [2.25, seat[1] + 4.2, seat[2] + 0.1] };
+  }
+  function buildHorseman(team) {
+    const m = { v: [], f: [] }, seat = horse(m, team), { rS, lS } = rider(m, team, seat);
+    const rH = arm(m, rS, [-2.3, 0, 0.2], [-2.6, 0, 0.1]);
+    part(m, boxG(0.32, 1.5, 0.32), C.DARK, { o: [0, -0.75, 0], r: [-0.2, 0, 0], p: rH });
+    part(m, boxG(2.0, 0.3, 0.45), C.STEEL, { o: [0, 0.75, 0], r: [-0.2, 0, 0], p: rH });
+    part(m, boxG(0.42, 7.0, 0.13, 0.25), [190, 195, 202], { o: [0, 1.0, 0], r: [-0.2, 0, 0], p: rH });
+    const lH = arm(m, lS, [-0.6, 0, -0.1], [-1.5, 0, 0], C.MAIL, C.LEATHER, 3.4, 2.2);
+    roundShield(m, team, lH, 0.8);
+    return m;
+  }
+  function buildLancer(team) {
+    const m = { v: [], f: [] }, seat = horse(m, team, { barding: true }), { rS, lS } = rider(m, team, seat, { armor: [150, 155, 162] });
+    const rH = arm(m, rS, [-0.5, 0, 0.1], [-1.45, 0, 0.1], [150, 155, 162], [150, 155, 162]);
+    const ln = [1.5, 0, 0];                                          // couched lance
+    part(m, boxG(0.42, 19, 0.42, 0.45, 0.45), C.LWOOD, { o: [0, -5, 0], r: ln, p: rH });
+    part(m, cylG(0.75, 1.4, 8, 0.3), C.DSTEEL, { o: [0, -4.2, 0], r: ln, p: rH });
+    part(m, prismG([[0, 0], [0, -1.6], [3.0, -0.8]], 0.08), team, { o: [0.2, 11.8, 0], r: [ln[0], 0, -Math.PI / 2], p: rH });
+    const lH = arm(m, lS, [-0.3, 0, -0.1], [-1.5, 0, 0], [150, 155, 162], [150, 155, 162], 3.4, 2.2);
+    const kite = [[-1.4, 2.9], [1.4, 2.9], [1.8, 2.1], [1.6, 0.2], [0, -3.6], [-1.6, 0.2], [-1.8, 2.1]];
+    part(m, prismG(kite, 0.3), team, { r: [0, 0.35, 0], p: [lH[0] - 0.2, lH[1] + 0.6, lH[2] + 0.3] });
+    return m;
+  }
+  function buildHorseArcher(team) {
+    const m = { v: [], f: [] }, seat = horse(m, team, { coat: C.HORSE2 });
+    const { rS, lS } = rider(m, team, seat, { armor: [96, 78, 56], helm: mm => hood(mm, team.map(c => c * 0.75 + 15)) });
+    const lH = arm(m, lS, [-1.35, 0, -0.1], [-1.45, 0, 0.05], [96, 78, 56], C.LEATHER);
+    arm(m, rS, [-1.2, 0, 0.5], [-0.3, 0, 1.4], [96, 78, 56], C.LEATHER, 3.4, 2.6);
+    for (const [dy, r] of [[0, 0], [2.4, -0.35], [-2.4, 0.35]]) part(m, boxG(0.26, 2.8, 0.26), C.WOOD, { o: [0, -1.4 + dy, 0], r: [r, 0, 0], p: add(lH, [0, 0, 0.4]) });
+    part(m, boxG(0.08, 7.0, 0.08), C.STRING, { o: [0, -3.5, 0], p: add(lH, [0, 0, -0.45]) });
+    return m;
+  }
+  function buildTrebuchet(team) {
+    const m = { v: [], f: [] };
+    for (const sx of [-1, 1]) {
+      part(m, boxG(0.9, 0.9, 10), C.WOOD, { p: [sx * 2.4, 0.2, 0] });
+      part(m, boxG(0.7, 10.5, 0.7), C.LWOOD, { r: [0.32, 0, 0], p: [sx * 2.4, 0.6, -3.0] });
+      part(m, boxG(0.7, 10.5, 0.7), C.LWOOD, { r: [-0.32, 0, 0], p: [sx * 2.4, 0.6, 3.0] });
+    }
+    for (const z of [-4.4, 0, 4.4]) part(m, boxG(5.6, 0.7, 0.8), C.WOOD, { p: [0, 0.3, z] });
+    part(m, cylG(0.4, 5.6, 8), C.DSTEEL, { r: [0, 0, Math.PI / 2], p: [2.8, 10.4, 0] });
+    const piv = [0, 10.4, 0], ar = [-1.05, 0, 0];                      // throwing arm, cocked back
+    part(m, boxG(0.6, 15, 0.6, 0.55, 0.55), C.LWOOD, { o: [0, -4, 0], r: ar, p: piv });
+    const cw = tip(piv, ar, -3.6);
+    part(m, boxG(2.8, 2.6, 2.4), [90, 86, 78], { p: [cw[0], cw[1] - 2.8, cw[2]] });
+    part(m, boxG(0.1, 3.0, 0.1), C.ROPE, { p: [cw[0], cw[1] - 0.4, cw[2]] });
+    const end = tip(piv, ar, 11);
+    part(m, boxG(0.08, 4.0, 0.08), C.ROPE, { p: [end[0], end[1] - 4, end[2]] });
+    part(m, cylG(0.7, 1.2, 8, 0.5), [120, 116, 108], { p: [end[0], end[1] - 5.2, end[2]] });
+    part(m, boxG(0.18, 3.0, 0.18), C.WOOD, { p: [2.4, 10.6, -3.4] });
+    part(m, prismG([[0, 0], [2.4, -0.7], [0, -1.4]], 0.1), team, { p: [2.45, 13.6, -3.45] });
+    return m;
+  }
+  function buildBallista(team) {
+    const m = { v: [], f: [] };
+    for (const [x, z] of [[-1.6, -1.6], [1.6, -1.6], [-1.6, 1.6], [1.6, 1.6]]) part(m, boxG(0.6, 4.2, 0.6), C.WOOD, { r: [z > 0 ? 0.2 : -0.2, 0, x > 0 ? -0.2 : 0.2], p: [x, 0, z] });
+    part(m, boxG(3.6, 0.8, 3.6), C.WOOD, { p: [0, 4.0, 0] });
+    part(m, boxG(1.3, 1.0, 8.4), C.LWOOD, { p: [0, 4.9, 0.6] });
+    for (const sx of [-1, 1]) part(m, boxG(4.4, 0.6, 0.6, 0.6, 0.6), C.WOOD, { r: [0, sx * 0.32, 0], p: [sx * 2.4, 5.0, 4.0] });
+    part(m, boxG(1.4, 1.4, 1.2), C.DSTEEL, { p: [0, 4.8, 4.4] });
+    part(m, boxG(0.08, 0.08, 4.4), C.STRING, { r: [0, 0.75, 0], p: [-2.4, 5.5, 2.6] });
+    part(m, boxG(0.08, 0.08, 4.4), C.STRING, { r: [0, -0.75, 0], p: [2.4, 5.5, 2.6] });
+    part(m, boxG(0.34, 0.34, 8.0), C.LWOOD, { p: [0, 6.0, 0.8] });
+    part(m, boxG(0.7, 0.5, 1.2, 0.2, 0.2), C.STEEL, { r: [Math.PI / 2, 0, 0], p: [0, 6.17, 4.8] });
+    part(m, boxG(0.18, 3.0, 0.18), C.WOOD, { p: [1.6, 4.8, -2.6] });
+    part(m, prismG([[0, 0], [2.4, -0.7], [0, -1.4]], 0.1), team, { p: [1.65, 7.8, -2.65] });
+    return m;
+  }
+
   // draw a mesh at board position (bx,by) facing angle th (radians, 0 = toward viewer)
-  function drawMesh(g, mesh, bx, by, th, t, flash = 0) {
+  function drawMesh(g, mesh, bx, by, th, t, flash = 0, dazed = 0) {
     const c = Math.cos(th), s = Math.sin(th), breathe = 0.012 * Math.sin(t * 2.1);
+    const sway = dazed ? Math.sin(t * 3.2) * 0.16 : 0;          // stunned units slump and sway
     const P = mesh.v.map(([x, y, w]) => {
       if (y > 8) y = 8 + (y - 8) * (1 + breathe);
+      if (dazed) { y *= 0.86; x += y * (0.22 + sway); }
       const X = x * c + w * s, Z = -x * s + w * c;
       return [X, y, Z];
     });
@@ -391,10 +596,23 @@
   const TEAM = { blue: [52, 86, 146], red: [152, 30, 42] };
   const poss = n => n.endsWith('s') ? n + "'" : n + "'s";
   const teamName = t => game.dm ? (t === 'blue' ? 'Heroes' : 'Dungeon Master') : (t === 'blue' ? 'Blue' : 'Red');
+  // unit roster. h = model height (for bars), mounted/antiCav/fragile/ranged drive the combat rules
   const UNIT_TYPES = {
-    swordsman: { name: 'Swordsman', maxHp: 12, staMax: 2, manaMax: 2, dmg: 3, move: 2, build: buildSwordsman },
-    knight:    { name: 'Knight',    hero: true, maxHp: 24, staMax: 2, manaMax: 2, dmg: 3, move: 2, build: buildKnight },
+    swordsman:   { name: 'Swordsman',    maxHp: 14, dmg: 3, move: 2, h: 17.6, build: buildSwordsman },
+    knight:      { name: 'Knight',       maxHp: 24, dmg: 3, move: 2, h: 18.4, hero: true, staMax: 2, manaMax: 2, build: buildKnight },
+    spearman:    { name: 'Spearman',     maxHp: 12, dmg: 3, move: 2, h: 17.6, antiCav: 1, build: buildSpearman },
+    halberdier:  { name: 'Halberdier',   maxHp: 12, dmg: 4, move: 2, h: 17.6, antiCav: 2, reach: 2, fragile: true, build: buildHalberdier },
+    swordmaster: { name: 'Swordmaster',  maxHp: 12, dmg: 6, move: 2, h: 17.6, fragile: true, build: buildSwordmaster },
+    archer:      { name: 'Archer',       maxHp: 6,  dmg: 3, move: 2, h: 17.6, ranged: 'arc', range: 5, noMoveShoot: true, build: buildArcher },
+    crossbow:    { name: 'Crossbowman',  maxHp: 6,  dmg: 6, move: 2, h: 17.6, ranged: 'line', range: 5, noMoveShoot: true, push: true, build: buildCrossbowman },
+    horseman:    { name: 'Horseman',     maxHp: 20, dmg: 3, move: 4, h: 20.5, mounted: true, build: buildHorseman },
+    lancer:      { name: 'Lancer',       maxHp: 18, dmg: 3, move: 4, h: 20.5, mounted: true, charge: 6, build: buildLancer },
+    horsearcher: { name: 'Horse archer', maxHp: 9,  dmg: 2, move: 4, h: 20.5, mounted: true, ranged: 'arc', range: 4, build: buildHorseArcher },
+    trebuchet:   { name: 'Trebuchet',    maxHp: 6,  dmg: 20, move: 1, h: 16, ranged: 'mark', range: 8, noMoveShoot: true, build: buildTrebuchet },
+    ballista:    { name: 'Ballista',     maxHp: 6,  dmg: 12, move: 1, h: 9, ranged: 'pierce', range: 8, noMoveShoot: true, build: buildBallista },
   };
+  const T = u => UNIT_TYPES[u.type] || UNIT_TYPES.swordsman;
+
   const meshCache = {};
   const meshFor = (type, team) => meshCache[type + team] || (meshCache[type + team] = UNIT_TYPES[type].build(TEAM[team]));
   const START = [
@@ -423,14 +641,15 @@
   function exportState(last) {
     return { seq: game.seq, turn: game.turn, round: game.round, dm: !!game.dm, battle: !!game.battle, types: game.types, last: last || null,
       units: units.filter(u => u.dying === null && u.hp > 0).map(u => ({ id: u.id, type: u.type, team: u.team, col: u.col, row: u.row, hp: u.hp, maxHp: u.maxHp, sta: u.sta, staMax: u.staMax, mana: u.mana, manaMax: u.manaMax,
-        face: Math.round(u.want * 100) / 100, moved: u.moved, attacked: u.attacked })) };
+        face: Math.round(u.want * 100) / 100, moved: u.moved, attacked: u.attacked,
+        ...(u.stun ? { stun: u.stun } : {}), ...(u.stunActive ? { stunActive: true } : {}), ...(u.mark ? { mark: u.mark } : {}) })) };
   }
   function applyState(st) {                       // snap to a shared state (keeps smooth facing/HP bars)
     const old = new Map(units.map(u => [u.id, u]));
     units = st.units.map(s => { const o = old.get(s.id);
-      if (!o) return runtimeUnit(s);
+      if (!o || o.type !== (UNIT_TYPES[s.type] ? s.type : 'swordsman') || o.team !== s.team) return runtimeUnit(s);
       if (typeof s.face === 'number') o.want = s.face;          // keep facing in sync with the shared game
-      Object.assign(o, { col: s.col, row: s.row, hp: s.hp, maxHp: s.maxHp || o.maxHp, sta: s.sta ?? o.sta, staMax: s.staMax ?? o.staMax, mana: s.mana ?? o.mana, manaMax: s.manaMax ?? o.manaMax, moved: s.moved, attacked: s.attacked, path: null, atk: null, dying: null, dragPos: null });
+      Object.assign(o, { col: s.col, row: s.row, hp: s.hp, maxHp: s.maxHp || o.maxHp, sta: s.sta ?? o.sta, staMax: s.staMax ?? o.staMax, mana: s.mana ?? o.mana, manaMax: s.manaMax ?? o.manaMax, moved: s.moved, attacked: s.attacked, stun: s.stun || 0, stunActive: !!s.stunActive, mark: s.mark || null, path: null, atk: null, dying: null, dragPos: null, push: false, fast: false });
       return o; });
     game = { seq: st.seq, turn: st.turn, round: st.round, dm: !!st.dm, battle: !!st.battle, types: (st.types && typeof st.types === 'object') ? st.types : {} };
     updateSeat();
@@ -472,7 +691,7 @@
     });
   }
   const unitAt = h => h && units.find(u => u.col === h[0] && u.row === h[1]);
-  const busy = () => !!afterIdle || units.some(u => u.path || u.atk || u.dying !== null);
+  const busy = () => !!afterIdle || projectiles.length > 0 || units.some(u => u.path || u.atk || u.dying !== null);
   const faceToward = (u, o) => { const a = center(u.col, u.row), b = center(o.col, o.row); u.want = Math.atan2(b.x - a.x, (b.y - a.y) / SQ); };
   const winner = () => { if (game.dm && !game.battle) return null; const t = new Set(units.filter(u => u.dying === null).map(u => u.team)); return t.size === 1 ? [...t][0] : null; };
 
@@ -509,27 +728,183 @@
   function addFloat(x, y, text, color, size = 20) { floats.push({ x, y, text, color, size, t: 0 }); }
   function moveUnit(u, path, then) { if (!path.length) { then && then(); return; } u.path = path; u.segT = 0; u.then = then || null; }
   function attack(u, tgt) { faceToward(u, tgt); u.atk = { target: tgt, t: 0, hit: false }; }
+  // ---------- Combat: lines, damage, push & stun, projectiles ----------
+  let projectiles = [], effects = [];
+  const liveUnitAt = h => h && units.find(u => u.col === h[0] && u.row === h[1] && u.dying === null && u.hp > 0);
+  const isMounted = u => !!T(u).mounted;
+  const onBoard = h => h[0] >= 0 && h[0] < COLS && h[1] >= 0 && h[1] < ROWS;
+  const blockedTile = h => !onBoard(h);                   // walls, trees and rocks will block here later
+  const step = (h, d, k = 1) => { const [q, r] = toAx(h[0], h[1]); return fromAx(q + DIRS[d][0] * k, r + DIRS[d][1] * k); };
+  function lineDir(from, to) {                            // {d, n} when 'to' is on one of the 6 straight lines from 'from'
+    const [q1, r1] = toAx(from[0], from[1]), [q2, r2] = toAx(to[0], to[1]), n = hexDist(from, to);
+    if (!n) return null;
+    for (let i = 0; i < 6; i++) if (DIRS[i][0] * n === q2 - q1 && DIRS[i][1] * n === r2 - r1) return { d: i, n };
+    return null;
+  }
+  function lineTiles(from, d, n) { const out = []; for (let k = 1; k <= n; k++) { const h = step(from, d, k); if (!onBoard(h)) break; out.push(h); } return out; }
+  function firstInLine(from, d, n) {
+    for (const h of lineTiles(from, d, n)) { if (blockedTile(h)) return null; const o = liveUnitAt(h); if (o) return { unit: o, tile: h }; }
+    return null;
+  }
+  const meleeDmg = (a, t) => a.dmg * (T(a).antiCav && isMounted(t) ? 2 : 1);     // spears & halberds: double vs mounted
+  const rangedDmg = (base, t) => base * (T(t).fragile ? 2 : 1);                  // halberdiers & swordmasters: double from missiles
+  const faceDir = (u, d) => { const a = center(u.col, u.row), b = center(...step([u.col, u.row], d)); u.want = Math.atan2(b.x - a.x, (b.y - a.y) / SQ); };
+  const faceTile = (u, h) => { const a = center(u.col, u.row), b = center(h[0], h[1]); u.want = Math.atan2(b.x - a.x, (b.y - a.y) / SQ); };
+  const headY = u => T(u).h * CE * K;
+  function hitUnit(t, amt) {
+    if (!t || t.dying !== null || t.hp <= 0) return;
+    t.hp = Math.max(0, t.hp - amt); t.flash = 1;
+    const p = upos(t); addFloat(p.x + 18, p.y - headY(t) - 40, `-${amt}`, '#ff5a46', 22);
+    if (t.hp === 0) t.dying = 0;
+  }
+  // stun: a unit stunned during its own side's turn loses the rest of that turn; otherwise it skips its next turn
+  function stunUnit(u) {
+    if (!u || u.dying !== null || u.hp <= 0) return;
+    if (game.turn === u.team) { u.stunActive = true; u.moved = true; u.attacked = true; } else u.stun = 1;
+    const p = upos(u); addFloat(p.x - 14, p.y - headY(u) - 62, 'STUNNED!', '#ffd23a', 16);
+  }
+  const isStunned = u => u.stunActive || u.stun > 0;
+  function pushUnit(u, h) { u.path = [h]; u.segT = 0; u.push = true; u.then = null; }
+  // anti-charge: lancer charging a spear/halberd, or passing within 1 (spear) / 2 (halberd) tiles of one, gets stunned
+  function antiCharge(u, tiles, tgt) {
+    if (tgt && T(tgt).antiCav && tgt.team !== u.team) return true;
+    const foes = units.filter(o => o.team !== u.team && o.dying === null && o.hp > 0 && T(o).antiCav);
+    return tiles.some(h => foes.some(o => hexDist(h, [o.col, o.row]) <= T(o).antiCav));
+  }
+  // projectiles: arrows arc high, bolts fly straight, boulders arc very high
+  const PSPEED = { arrow: 950, bolt: 1500, pierce: 1300, boulder: 650 }, PARC = { arrow: 0.28, bolt: 0, pierce: 0, boulder: 0.55 };
+  function fire(kind, from, to, onEnd, hits = []) {
+    const d = Math.hypot(to.x - from.x, to.y - from.y) || 1;
+    projectiles.push({ kind, x0: from.x, y0: from.y, x1: to.x, y1: to.y, t: 0, dur: d / PSPEED[kind], arc: d * PARC[kind], onEnd, hits });
+  }
+  const shotFrom = u => { const p = upos(u); return { x: p.x, y: p.y - headY(u) * 0.62 }; };
+  const shotAt = u => { const p = upos(u); return { x: p.x, y: p.y - headY(u) * 0.5 }; };
+  const tileAt = h => { const m = center(h[0], h[1]); return { x: m.x + OX, y: m.y + OY }; };
+  function updateProjectiles(dt) {
+    for (const p of projectiles) {
+      p.t = Math.min(1, p.t + dt / Math.max(0.12, p.dur));
+      for (const h of p.hits) if (!h.done && p.t >= h.f) { h.done = true; h.fn(); }
+      if (p.t >= 1 && !p.ended) { p.ended = true; p.onEnd && p.onEnd(); }
+    }
+    projectiles = projectiles.filter(p => !p.ended);
+    for (const e of effects) e.t += dt;
+    effects = effects.filter(e => e.t < 0.9);
+  }
+  function drawProjectiles() {
+    for (const p of projectiles) {
+      if (p.t < 0) continue;
+      const x = p.x0 + (p.x1 - p.x0) * p.t, gy = p.y0 + (p.y1 - p.y0) * p.t, y = gy - p.arc * 4 * p.t * (1 - p.t);
+      const dx = p.x1 - p.x0, dy = (p.y1 - p.y0) - p.arc * 4 * (1 - 2 * p.t), a = Math.atan2(dy, dx);
+      if (p.arc) { ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(x, gy + 8, p.kind === 'boulder' ? 9 : 5, p.kind === 'boulder' ? 4 : 2, 0, 0, 7); ctx.fill(); }
+      ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+      if (p.kind === 'boulder') { ctx.fillStyle = '#8a857a'; ctx.strokeStyle = '#3c3a34'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 8, 0, 7); ctx.fill(); ctx.stroke(); }
+      else {
+        const L = p.kind === 'pierce' ? 34 : p.kind === 'bolt' ? 18 : 16, W = p.kind === 'pierce' ? 4 : p.kind === 'bolt' ? 2.6 : 1.6;
+        ctx.strokeStyle = p.kind === 'arrow' ? '#d9c79a' : '#6e4e30'; ctx.lineWidth = W; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(-L, 0); ctx.lineTo(0, 0); ctx.stroke();
+        ctx.fillStyle = '#c9ced6'; ctx.beginPath(); ctx.moveTo(3 + W, 0); ctx.lineTo(-3, -2 - W / 2); ctx.lineTo(-3, 2 + W / 2); ctx.fill();
+        if (p.kind === 'arrow') { ctx.strokeStyle = '#e8e2d0'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-L, 0); ctx.lineTo(-L - 4, -3); ctx.moveTo(-L, 0); ctx.lineTo(-L - 4, 3); ctx.stroke(); }
+      }
+      ctx.restore();
+    }
+    for (const e of effects) {                        // boulder impact dust
+      const r = 10 + e.t * 60, a = Math.max(0, 0.7 - e.t);
+      ctx.strokeStyle = `rgba(190,170,130,${a})`; ctx.lineWidth = 5; ctx.beginPath(); ctx.ellipse(e.x, e.y, r, r * SQ, 0, 0, 7); ctx.stroke();
+    }
+  }
 
-  // play one action (used for your own clicks AND to replay the other player's), then call done when idle
+  // play one action (your own click AND the other player's replay), then call done when everything settles
+  const ACTIONS = ['move', 'attack', 'shoot', 'bolt', 'pierce', 'charge', 'mark'];
   function play(a, done) {
     const u = units.find(x => x.id === a.id);
-    if (a.type === 'end' || a.type === 'reset' || !u) { done(); return; }
-    const tgt = a.target && units.find(x => x.id === a.target);
-    const strike = () => { if (tgt && tgt.hp > 0) { attack(u, tgt); u.attacked = true; u.moved = true; } };
-    if (a.path && a.path.length) u.moved = true;
-    moveUnit(u, (a.path || []).map(h => [h[0], h[1]]), a.type === 'attack' ? strike : null);
+    if (!u || !ACTIONS.includes(a.type)) { done(); return; }
     afterIdle = done;
+    const here = () => [u.col, u.row], path = (a.path || []).map(h => [h[0], h[1]]), ty = T(u);
+    if (path.length) u.moved = true;
+    if (a.type === 'charge') {                         // lancer: gallop in a straight line, hit the first unit met
+      const tiles = lineTiles(here(), a.dir, ty.charge), lane = []; let tgt = null;
+      for (const h of tiles) { if (blockedTile(h)) break; const o = liveUnitAt(h); if (o) { tgt = o; break; } lane.push(h); }
+      u.moved = true; u.attacked = true; u.fast = true; faceDir(u, a.dir);
+      moveUnit(u, lane, () => {
+        u.fast = false;
+        const stunned = antiCharge(u, lane.length ? lane : [here()], tgt);
+        if (tgt) { faceToward(u, tgt); u.atk = { target: tgt, t: 0, hit: false, onHit: () => { hitUnit(tgt, u.dmg * 2); stunUnit(tgt); if (stunned) stunUnit(u); } }; }
+        else if (stunned) stunUnit(u);
+      });
+      return;
+    }
+    moveUnit(u, path, () => {
+      if (a.type === 'attack') {
+        const ts = (a.targets || [a.target]).map(id => units.find(x => x.id === id)).filter(t => t && t.dying === null);
+        if (ts.length) { faceToward(u, ts[0]); u.atk = { target: ts[0], t: 0, hit: false, onHit: () => ts.forEach(t => hitUnit(t, meleeDmg(u, t))) }; }
+        u.attacked = u.moved = true;
+      } else if (a.type === 'shoot') {                 // archers & horse archers: arcing arrow
+        const t = units.find(x => x.id === a.target);
+        if (t && t.dying === null) { faceToward(u, t); fire('arrow', shotFrom(u), shotAt(t), () => hitUnit(t, rangedDmg(u.dmg, t))); }
+        u.attacked = u.moved = true;
+      } else if (a.type === 'bolt') {                  // crossbow: straight bolt, first unit in line, push back or stun
+        faceDir(u, a.dir); u.attacked = u.moved = true;
+        const f = firstInLine(here(), a.dir, ty.range); if (!f) return;
+        const t = f.unit;
+        fire('bolt', shotFrom(u), shotAt(t), () => {
+          hitUnit(t, rangedDmg(u.dmg, t));
+          if (t.hp <= 0) return;
+          const nt = step([t.col, t.row], a.dir), o = onBoard(nt) && liveUnitAt(nt);
+          if (blockedTile(nt)) stunUnit(t); else if (o) { stunUnit(t); stunUnit(o); } else pushUnit(t, nt);
+        });
+      } else if (a.type === 'pierce') {                // ballista: bolt passes through, -2 damage per unit hit, pushes all
+        faceDir(u, a.dir); u.attacked = u.moved = true;
+        const tiles = lineTiles(here(), a.dir, ty.range); let dmg = u.dmg, endI = tiles.length - 1; const hits = [];
+        for (let i = 0; i < tiles.length; i++) {
+          if (blockedTile(tiles[i])) { endI = i - 1; break; }
+          const o = liveUnitAt(tiles[i]);
+          if (o) { hits.push({ o, i, dmg: rangedDmg(dmg, o) }); dmg -= 2; if (dmg <= 0) { endI = i; break; } }
+        }
+        if (endI < 0) return;
+        const end = tileAt(tiles[endI]), from = shotFrom(u);
+        fire('pierce', from, { x: end.x, y: end.y - 9 * CE * K * 0.5 }, () => {
+          const alive = hits.filter(h => h.o.hp > 0);
+          if (!alive.length) return;
+          const far = alive[alive.length - 1].o, nt = step([far.col, far.row], a.dir), o = onBoard(nt) && liveUnitAt(nt);
+          if (blockedTile(nt) || (o && !alive.some(h => h.o === o))) alive.forEach(h => stunUnit(h.o));
+          else for (let k = alive.length - 1; k >= 0; k--) pushUnit(alive[k].o, step([alive[k].o.col, alive[k].o.row], a.dir));
+        }, hits.map(h => ({ f: (h.i + 1) / (endI + 1), fn: () => hitUnit(h.o, h.dmg) })));
+      } else if (a.type === 'mark') {                  // trebuchet: mark a tile, the boulder lands at the start of its next turn
+        faceTile(u, [a.col, a.row]); u.mark = [a.col, a.row]; u.attacked = u.moved = true;
+        const m = tileAt([a.col, a.row]); addFloat(m.x, m.y - 30, 'Target marked', '#ffb08a', 14);
+      }
+    });
+  }
+  // trebuchet boulders for the side whose turn is starting
+  function trebuchetVolley(team) {
+    const groups = new Map();
+    for (const u of units) if (u.team === team && u.type === 'trebuchet' && u.mark && u.dying === null && u.hp > 0) {
+      const k = key(...u.mark); if (!groups.has(k)) groups.set(k, { tile: u.mark, from: [] }); groups.get(k).from.push(u);
+    }
+    for (const u of units) if (u.team === team && u.type === 'trebuchet') u.mark = null;
+    return [...groups.values()];
+  }
+  function launchBoulders(volley, applyDamage) {
+    for (const g of volley) g.from.forEach((tr, i) => {
+      const to = tileAt(g.tile);
+      fire('boulder', shotFrom(tr), to, () => {
+        effects.push({ x: to.x, y: to.y, t: 0 });
+        if (applyDamage) { const t = liveUnitAt(g.tile); if (t) hitUnit(t, rangedDmg(tr.dmg, t)); }
+        else addFloat(to.x, to.y - 20, '💥', '#fff', 22);
+      });
+      projectiles[projectiles.length - 1].t = -i * 0.25;          // several boulders on one spot arrive one after another
+    });
   }
 
   function updateUnits(dt) {
     for (const u of units) {
       if (u.path) {
         const a = center(u.col, u.row), b = center(...u.path[0]);
-        u.want = Math.atan2(b.x - a.x, (b.y - a.y) / SQ);
-        u.segT += dt * 3.6;
+        if (!u.push) u.want = Math.atan2(b.x - a.x, (b.y - a.y) / SQ);
+        u.segT += dt * (u.push ? 5 : u.fast ? 8 : 3.6);
         if (u.segT >= 1) {
           [u.col, u.row] = u.path.shift(); u.segT = 0;
-          if (!u.path.length) { u.path = null; if (u === selUnit) sel = [u.col, u.row];
+          if (!u.path.length) { u.path = null; u.push = false; if (u === selUnit) sel = [u.col, u.row];
             const th = u.then; u.then = null; th && th(); }
         }
       }
@@ -537,9 +912,7 @@
         u.atk.t += dt / 0.5;
         if (!u.atk.hit && u.atk.t >= 0.45) {
           u.atk.hit = true; const tg = u.atk.target;
-          tg.hp = Math.max(0, tg.hp - u.dmg); tg.flash = 1;
-          const p = upos(tg); addFloat(p.x + 18, p.y - 17.6 * CE * K - 40, `-${u.dmg}`, '#ff5a46', 22);
-          if (tg.hp === 0) tg.dying = 0;
+          if (u.atk.onHit) u.atk.onHit(); else hitUnit(tg, u.dmg);
         }
         if (u.atk.t >= 1) u.atk = null;
       }
@@ -554,9 +927,10 @@
         }
       }
     }
+    updateProjectiles(dt);
     for (const f of floats) f.t += dt;
     floats = floats.filter(f => f.t < 1.2);
-    if (afterIdle && !units.some(u => u.path || u.atk || u.dying !== null)) { const f = afterIdle; afterIdle = null; f(); }
+    if (afterIdle && !projectiles.length && !units.some(u => u.path || u.atk || u.dying !== null)) { const f = afterIdle; afterIdle = null; f(); }
   }
 
   function drawUnits(t) {
@@ -568,8 +942,23 @@
       const tc = TEAM[u.team];
       ctx.strokeStyle = `rgba(${tc[0] + 40},${tc[1] + 40},${tc[2] + 40},${spent ? 0.25 : 0.75})`; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.ellipse(bx, by, U * 0.55, U * 0.55 * SQ, 0, 0, 7); ctx.stroke();
-      const walk = u.path ? Math.abs(Math.sin(u.segT * Math.PI)) * 2.5 : 0;
-      drawMesh(ctx, u.mesh, bx, by - walk + (u.dying || 0) * 6, u.face, t + u.phase, u.flash);
+      const walk = u.path && !u.push ? Math.abs(Math.sin(u.segT * Math.PI)) * 2.5 : 0, dz = isStunned(u) && u.dying === null;
+      if (dz) { ctx.beginPath(); hexPath(u.col, u.row, ctx); ctx.fillStyle = `rgba(255,210,58,${0.16 + 0.08 * Math.sin(t * 6)})`; ctx.fill(); }
+      if (dz) {                                          // stunned: big pulsing yellow ring, easy to spot from afar
+        const pr = 1 + 0.12 * Math.sin(t * 6);
+        ctx.strokeStyle = 'rgba(255,210,58,0.95)'; ctx.lineWidth = 4; ctx.setLineDash([9, 6]); ctx.lineDashOffset = -t * 30;
+        ctx.beginPath(); ctx.ellipse(bx, by, U * 0.85 * pr, U * 0.85 * SQ * pr, 0, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+      }
+      drawMesh(ctx, u.mesh, bx, by - walk + (u.dying || 0) * 6, u.face, t + u.phase, u.flash, dz ? 1 : 0);
+      if (dz) {                                          // stars circling the head
+        const hy = by - headY(u) * 0.9 - 10;
+        for (let k = 0; k < 3; k++) {
+          const a = t * 3 + k * Math.PI * 2 / 3, sx = bx + Math.cos(a) * 15, sy = hy + Math.sin(a) * 5, r = 6.5;
+          ctx.beginPath();
+          for (let i = 0; i < 10; i++) { const rr = i % 2 ? r * 0.45 : r, aa = -Math.PI / 2 + i * Math.PI / 5; ctx[i ? 'lineTo' : 'moveTo'](sx + Math.cos(aa) * rr, sy + Math.sin(aa) * rr); }
+          ctx.closePath(); ctx.fillStyle = '#ffd23a'; ctx.strokeStyle = 'rgba(60,40,0,0.9)'; ctx.lineWidth = 1.2; ctx.fill(); ctx.stroke();
+        }
+      }
       ctx.restore();
     }
     for (const { u, p } of list) { ctx.save(); if (u.dying !== null) ctx.globalAlpha = Math.max(0, 1 - u.dying); drawHealth(u, p.x, p.y); ctx.restore(); }
@@ -583,7 +972,7 @@
   }
   // health bar above the head: one segment per HP
   function drawHealth(u, bx, by) {
-    const w = U * 0.95, h = 6, x = bx - w / 2, y = by - 17.6 * CE * K - 22;
+    const w = U * 0.95, h = 6, x = bx - w / 2, y = by - headY(u) - 22 - (isStunned(u) ? 14 : 0);
     const hasTurn = u.team === game.turn && u.dying === null && !winner() && !unitDone(u);
     const rows = [['mana', 'manaMax', '#4a7fe0', 'rgba(74,127,224,0.28)']].filter(b => u[b[1]] > 0 && hasRes(u));
     const rh = 5, total = h + (rows.length ? 2 + rows.length * rh : 0);
@@ -644,6 +1033,116 @@
     return (col >= 0 && col < COLS && row >= 0 && row < ROWS) ? [col, row] : null;
   }
 
+  // ---------- Range zones, aim previews, trebuchet marks ----------
+  function worldHex(x, y) {
+    const bx = x, by = y / SQ;
+    const qf = (SQ3 / 3 * bx - 1 / 3 * by) / S, rf = (2 / 3 * by) / S, sf = -qf - rf;
+    let q = Math.round(qf), r = Math.round(rf), s2 = Math.round(sf);
+    const dq = Math.abs(q - qf), dr = Math.abs(r - rf), ds = Math.abs(s2 - sf);
+    if (dq > dr && dq > ds) q = -r - s2; else if (dr > ds) r = -q - s2;
+    return [q + (r - (r & 1)) / 2, r];
+  }
+  function rangeTiles(u) {
+    const ty = T(u), here = [u.col, u.row], set = new Set();
+    if (ty.ranged === 'arc' || ty.ranged === 'mark') {
+      for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS; r++) { const d = hexDist(here, [c, r]); if (d > 0 && d <= ty.range) set.add(key(c, r)); }
+    } else if (ty.ranged === 'line' || ty.ranged === 'pierce') {
+      for (let d = 0; d < 6; d++) for (const h of lineTiles(here, d, ty.range)) { if (blockedTile(h)) break; set.add(key(...h)); if (ty.ranged === 'line' && liveUnitAt(h)) break; }
+    } else if (ty.charge) {
+      for (let d = 0; d < 6; d++) lineTiles(here, d, ty.charge).forEach((h, i) => { if (i >= 3) set.add(key(...h)); });
+    }
+    return set;
+  }
+  function drawZone(set, fill, stroke, dots) {
+    if (!set.size) return;
+    ctx.beginPath(); for (const k of set) { const [c, r] = k.split(',').map(Number); hexPath(c, r, ctx); }
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.beginPath();
+    for (const k of set) {                         // outline only the outer edge of the zone
+      const [c, r] = k.split(',').map(Number), m = center(c, r), p = corners(m.x, m.y);
+      for (let i = 0; i < 6; i++) {
+        const a = p[i], b = p[(i + 1) % 6], mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, nb = worldHex(2 * mx - m.x, 2 * my - m.y);
+        if (!set.has(key(...nb))) { ctx.moveTo(a[0] + OX, a[1] + OY); ctx.lineTo(b[0] + OX, b[1] + OY); }
+      }
+    }
+    ctx.strokeStyle = stroke; ctx.lineWidth = 2.5 / Math.max(z, 0.5); ctx.setLineDash([8, 6]); ctx.stroke(); ctx.setLineDash([]);
+    if (dots) { ctx.fillStyle = stroke; for (const k of set) { const [c, r] = k.split(',').map(Number), m = center(c, r); ctx.beginPath(); ctx.arc(m.x + OX, m.y + OY, 2.6, 0, 7); ctx.fill(); } }
+  }
+  const outlineHex = (h, col, w = 3) => { ctx.beginPath(); hexPath(h[0], h[1], ctx); ctx.strokeStyle = col; ctx.lineWidth = w / Math.max(z, 0.5); ctx.stroke(); };
+  const tintHex = (h, col) => { ctx.beginPath(); hexPath(h[0], h[1], ctx); ctx.fillStyle = col; ctx.fill(); };
+  let previewLabels = [];
+  const label = (u, text, color = '#ffb4a0') => { const p = upos(u); previewLabels.push({ x: p.x, y: p.y - headY(u) - 58, text, color }); };
+  function drawCrosshair(h, col, n, t) {
+    const m = tileAt(h), R = S * 0.5 * (n > 1 ? 1.18 : 1), pul = 1 + 0.06 * Math.sin(t * 5);
+    ctx.save(); ctx.translate(m.x, m.y); ctx.scale(pul, pul * SQ);
+    ctx.strokeStyle = col; ctx.lineWidth = n > 1 ? 5 : 3;
+    ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.stroke();
+    if (n > 1) { ctx.beginPath(); ctx.arc(0, 0, R * 0.72, 0, 7); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(-R * 1.25, 0); ctx.lineTo(-R * 0.35, 0); ctx.moveTo(R * 0.35, 0); ctx.lineTo(R * 1.25, 0);
+    ctx.moveTo(0, -R * 1.25); ctx.lineTo(0, -R * 0.35); ctx.moveTo(0, R * 0.35); ctx.lineTo(0, R * 1.25); ctx.stroke();
+    ctx.restore();
+    if (n > 1) { ctx.font = '800 18px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(10,6,4,0.9)';
+      ctx.strokeText(`×${n}`, m.x + R * 1.55, m.y); ctx.fillStyle = '#ffcf6a'; ctx.fillText(`×${n}`, m.x + R * 1.55, m.y); }
+  }
+  function drawMarks(t) {
+    const g = new Map();
+    for (const u of units) if (u.mark && u.dying === null) { const k = key(...u.mark); if (!g.has(k)) g.set(k, { h: u.mark, n: 0, team: u.team }); g.get(k).n++; }
+    for (const { h, n, team } of g.values()) drawCrosshair(h, `rgba(${TEAM[team].map(v => Math.min(255, v + 110))},0.95)`, n, t);
+  }
+  function drawRanges(t) {
+    previewLabels = [];
+    if (busy()) return;
+    const hu = unitAt(hover), shown = new Set();
+    for (const u of [selUnit, hu]) {
+      if (!u || shown.has(u) || u.dying !== null) continue; shown.add(u);
+      const ty = T(u); if (!ty.ranged && !ty.charge) continue;
+      if (ty.charge) drawZone(rangeTiles(u), 'rgba(235,150,40,0.08)', 'rgba(240,170,60,0.85)', true);
+      else drawZone(rangeTiles(u), 'rgba(225,70,45,0.09)', 'rgba(245,105,75,0.9)', true);
+    }
+    // aim preview for the selected unit
+    const u = selUnit; if (!u || !hover || !canCommand(u) || u.attacked) return;
+    const ty = T(u), here = [u.col, u.row], tgt = liveUnitAt(hover), ld = lineDir(here, hover);
+    if ((ty.ranged === 'line' || ty.ranged === 'pierce') && ld && ld.n <= ty.range && !u.moved && (tgt || !reach(u).dist.has(key(...hover)))) {
+      if (ty.ranged === 'line') {
+        const f = firstInLine(here, ld.d, ty.range); if (!f) return;
+        for (const h of lineTiles(here, ld.d, hexDist(here, f.tile))) tintHex(h, 'rgba(245,105,75,0.16)');
+        outlineHex(f.tile, 'rgba(255,70,50,0.95)', 4);
+        const nt = step(f.tile, ld.d), o = onBoard(nt) && liveUnitAt(nt), d = rangedDmg(u.dmg, f.unit);
+        label(f.unit, `-${d} · ${f.unit.hp - d <= 0 ? 'KILL' : (blockedTile(nt) || o) ? 'STUN' : 'PUSH'}`, f.unit.team === u.team ? '#ffd27a' : '#ffb4a0');
+        if (o && f.unit.hp - d > 0) { outlineHex(nt, 'rgba(255,210,58,0.9)', 3); label(o, 'STUN', '#ffd27a'); }
+      } else {
+        let dmg = u.dmg;
+        for (const h of lineTiles(here, ld.d, ty.range)) {
+          if (blockedTile(h)) break; tintHex(h, 'rgba(245,105,75,0.12)');
+          const o = liveUnitAt(h); if (!o) continue;
+          outlineHex(h, 'rgba(255,70,50,0.95)', 4); label(o, `-${rangedDmg(dmg, o)}`, o.team === u.team ? '#ffd27a' : '#ffb4a0');
+          dmg -= 2; if (dmg <= 0) break;
+        }
+      }
+      return;
+    }
+    if (ty.ranged === 'mark' && !u.moved && hexDist(here, hover) <= ty.range && !(hexDist(here, hover) === 1 && !tgt)) { drawCrosshair(hover, 'rgba(255,150,110,0.7)', 1, t); return; }
+    if (!tgt || tgt.team === u.team) return;
+    if (ty.ranged === 'arc' && hexDist(here, hover) <= ty.range && !(ty.noMoveShoot && u.moved)) { outlineHex(hover, 'rgba(255,70,50,0.95)', 4); label(tgt, `-${rangedDmg(u.dmg, tgt)}`); return; }
+    if (ty.charge && !u.moved && ld && ld.n >= 4 && ld.n <= ty.charge) {
+      const lane = []; let first = null;
+      for (const h of lineTiles(here, ld.d, ty.charge)) { const o = liveUnitAt(h); if (o) { first = o; break; } lane.push(h); }
+      lane.forEach(h => tintHex(h, 'rgba(240,170,60,0.22)'));
+      if (first) { outlineHex([first.col, first.row], 'rgba(255,70,50,0.95)', 4); label(first, `CHARGE -${u.dmg * 2} · STUN`, first.team === u.team ? '#ffd27a' : '#ffb4a0'); }
+      if (antiCharge(u, lane.length ? lane : [here], first)) label(u, '⚠ spears: lancer stunned', '#ffd27a');
+      return;
+    }
+    if (!ty.ranged) {
+      const from = hexDist(here, hover) <= (ty.reach || 1) ? here : null;
+      label(tgt, `-${meleeDmg(u, tgt)}`);
+      if (from && ty.reach === 2 && hexDist(here, hover) === 2 && ld) { const mo = liveUnitAt(step(here, ld.d)); if (mo && mo.team !== u.team) { outlineHex([mo.col, mo.row], 'rgba(255,70,50,0.95)', 4); label(mo, `-${meleeDmg(u, mo)} thrust`); } }
+    }
+  }
+  function drawLabels() {
+    ctx.font = `800 ${Math.max(13, Math.min(30, 13 / z)).toFixed(1)}px system-ui,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const l of previewLabels) { ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(10,6,4,0.9)'; ctx.strokeText(l.text, l.x, l.y); ctx.fillStyle = l.color; ctx.fillText(l.text, l.x, l.y); }
+  }
+
   function render(t) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#12140e'; ctx.fillRect(0, 0, cv.width, cv.height);
@@ -666,18 +1165,19 @@
       ctx.strokeStyle = 'rgba(235,235,220,0.45)'; ctx.lineWidth = 1.5 / Math.max(z, 0.6); ctx.stroke();
     }
     const hu = unitAt(hover);
-    if (selUnit && hu && hu.team !== selUnit.team && !busy() && canCommand(selUnit) && !selUnit.attacked) {
+    if (selUnit && hu && hu.team !== selUnit.team && !busy() && canCommand(selUnit) && !selUnit.attacked && !['line', 'pierce', 'mark'].includes(T(selUnit).ranged)) {
       ctx.beginPath(); hexPath(hu.col, hu.row, ctx);
       ctx.fillStyle = 'rgba(200,50,40,0.18)'; ctx.fill();
       ctx.strokeStyle = 'rgba(230,80,60,0.9)'; ctx.lineWidth = 2 / Math.max(z, 0.6); ctx.stroke();
     }
+    drawMarks(t); drawRanges(t);
     if (dmActive() && hover && (placing || dragUnit)) {
       const free = !unitAt(hover) || unitAt(hover) === dragUnit;
       ctx.beginPath(); hexPath(hover[0], hover[1], ctx);
       ctx.fillStyle = free ? 'rgba(178,146,64,0.22)' : 'rgba(200,50,40,0.22)'; ctx.fill();
       ctx.strokeStyle = free ? 'rgba(220,190,100,0.9)' : 'rgba(230,80,60,0.9)'; ctx.lineWidth = 2 / Math.max(z, 0.6); ctx.stroke();
     }
-    drawUnits(t);
+    drawUnits(t); drawProjectiles(); drawLabels();
     if (dmActive() && placing && hover && !unitAt(hover)) {
       const m = center(...hover); ctx.save(); ctx.globalAlpha = 0.5;
       drawMesh(ctx, meshFor(placing.type, placing.team), m.x + OX, m.y + OY, placing.team === 'blue' ? Math.PI / 2 : -Math.PI / 2, t, 0); ctx.restore();
@@ -685,11 +1185,19 @@
   }
   let last = performance.now();
   function loop(now) { now = now || performance.now(); const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    updateUnits(dt); turnUnits(dt); render(now / 1000); requestAnimationFrame(loop); }
+    panKeys(dt); updateUnits(dt); turnUnits(dt); render(now / 1000); requestAnimationFrame(loop); }
+  // WASD camera: hold to scroll (Shift = faster)
+  const held = new Set();
+  function panKeys(dt) {
+    if (!held.size) return;
+    const sp = (held.has('shift') ? 1600 : 800) * dt;
+    if (held.has('w')) off.y += sp; if (held.has('s')) off.y -= sp;
+    if (held.has('a')) off.x += sp; if (held.has('d')) off.x -= sp;
+  }
 
   // ---------- Online: players & sync (room capability) ----------
   // Each player's presence carries the latest shared game state; the highest seq wins.
-  let resetArmed = 0, lastTurnHtml = '', lastNetHtml = '', placing = null, dragUnit = null;
+  let resetArmed = 0, lastTurnHtml = '', lastNetHtml = '', placing = null, dragUnit = null, dmSide = 'red';
   // Dungeon Master: in online games the host is the DM (enemy side), the friend plays the heroes
   function updateSeat() { if (mode === 'online' && p2p.role) mySeat = game.dm ? (p2p.role === 'host' ? 'red' : 'blue') : (p2p.role === 'host' ? 'blue' : 'red'); }
   const isHost = () => mode === 'local' || p2p.role === 'host' || (room && mode === 'online' && mySeat === (game.dm ? 'red' : 'blue'));
@@ -775,22 +1283,35 @@
         : 'Connection error (' + e.type + ') · check internet / firewall and try again'); });
   }
   function commit(action) {
-    game.seq += 1; if (action.type === 'end') endTurnLocal();
-    if (action.type === 'attack') game.battle = true; if (action.type === 'edit') game.battle = false; publish({ ...action, seq: game.seq }); saveLocal(); refreshUI();
+    game.seq += 1;
+    let volley = null;
+    if (action.type === 'end') {
+      volley = endTurnLocal();
+      if (volley.length) action = { ...action, impacts: volley.map(g => ({ tile: g.tile, from: g.from.map(u => u.id) })) };
+    }
+    if (['attack', 'shoot', 'bolt', 'pierce', 'charge', 'impact'].includes(action.type)) game.battle = true; if (action.type === 'edit') game.battle = false;
+    publish({ ...action, seq: game.seq }); saveLocal(); refreshUI();
+    if (volley && volley.length) { launchBoulders(volley, true); afterIdle = () => commit({ type: 'impact' }); return; }
     // hand the turn over automatically once every unit of this side has nothing left to do
-    if (action.type !== 'end' && !winner() && sideDone(game.turn)) setTimeout(() => { if (!busy() && !winner() && sideDone(game.turn) && myTurn()) commit({ type: 'end' }); }, 700);
+    if (action.type !== 'end' && action.type !== 'impact' && !winner() && sideDone(game.turn)) setTimeout(() => { if (!busy() && !winner() && sideDone(game.turn) && myTurn()) commit({ type: 'end' }); }, 700);
   }
   function unitDone(u) {
-    if (u.attacked) return true;
+    if (u.stunActive || u.attacked) return true;
+    const ty = T(u);
+    if (ty.noMoveShoot) return !!u.moved;                    // these can't move and shoot in the same turn
     if (!u.moved) return false;
-    return !neighbors(u.col, u.row).some(h => { const o = unitAt(h); return o && o.team !== u.team && o.dying === null; });
+    const r = ty.ranged === 'arc' ? ty.range : (ty.reach || 1);   // moved: still has a turn if an enemy is in reach
+    return !units.some(o => o.team !== u.team && o.dying === null && o.hp > 0 && hexDist([u.col, u.row], [o.col, o.row]) <= r);
   }
   const sideDone = team => units.filter(u => u.team === team && u.dying === null).every(unitDone);
   function endTurnLocal() {
-    for (const u of units) { u.moved = false; u.attacked = false; }
+    const ending = game.turn;
+    for (const u of units) { u.moved = false; u.attacked = false; if (u.team === ending) u.stunActive = false; }
     if (game.turn === 'red') game.round += 1;
     game.turn = game.turn === 'blue' ? 'red' : 'blue';
+    for (const u of units) if (u.team === game.turn && u.stun > 0) { u.stun = 0; u.stunActive = true; u.moved = true; u.attacked = true; }
     selUnit = null; sel = null;
+    return trebuchetVolley(game.turn);
   }
   function onRemoteState(st) {
     if (!validState(st)) return;
@@ -798,12 +1319,14 @@
     if (st.seq < game.seq || (st.seq === game.seq && p2p.role !== 'join')) return;   // on a tie the host's game wins
     if (busy()) { lastRemote = st; return; }                 // finish current animation first
     const a = st.last;
-    if (a && a.seq === st.seq && st.seq === game.seq + 1 && (a.type === 'move' || a.type === 'attack')) {
+    if (a && a.seq === st.seq && st.seq === game.seq + 1 && ACTIONS.includes(a.type)) {
       game.seq = st.seq;                                     // claim it so we don't replay twice
       play(a, () => { applyState(st); publish(st.last); });  // then keep a copy in my presence too
     } else {
-      if (a && a.type === 'reset') { floats = []; }
+      if (a && a.type === 'reset') { floats = []; projectiles = []; }
       applyState(st); publish(st.last);
+      if (a && a.type === 'end' && Array.isArray(a.impacts))       // show the other side's trebuchet boulders landing
+        launchBoulders(a.impacts.map(i => ({ tile: i.tile, from: (i.from || []).map(id => units.find(u => u.id === id)).filter(Boolean) })), false);
     }
   }
   function seatsTaken() { const s = {}; for (const p of peerList) if (!p.sameTab && p.presence && p.presence.seat) s[p.presence.seat] = true; return s; }
@@ -829,12 +1352,26 @@
   const myTurn = () => mode === 'local' || game.turn === mySeat;
   const canCommand = u => u && !winner() && u.team === game.turn && myTurn() && !(u.moved && u.attacked);
 
+  function traits(u) {
+    const ty = T(u), t = [];
+    if (ty.range) t.push(`Range ${ty.range}`);
+    if (ty.reach) t.push(`Reach ${ty.reach}`);
+    if (ty.charge) t.push('Charge 4-6');
+    if (ty.antiCav) t.push(`Anti-cavalry (${ty.antiCav})`);
+    if (ty.mounted) t.push('Mounted');
+    if (ty.fragile) t.push('2× from missiles');
+    if (ty.noMoveShoot) t.push("can't move & shoot");
+    if (ty.push) t.push('Push back');
+    if (ty.ranged === 'pierce') t.push('Piercing');
+    if (u.mark) t.push(`Target marked ${u.mark[0]},${u.mark[1]}`);
+    return t.length ? ' · ' + t.join(' · ') : '';
+  }
   function refreshUI() {
     selEl.textContent = fmt(sel);
-    infoEl.textContent = selUnit ? `${teamName(selUnit.team)} ${selUnit.name} · HP ${selUnit.hp}/${selUnit.maxHp} · Damage ${selUnit.dmg} · Move ${selUnit.move}` +
+    infoEl.textContent = selUnit ? `${teamName(selUnit.team)} ${selUnit.name} · HP ${selUnit.hp}/${selUnit.maxHp} · Damage ${selUnit.dmg} · Move ${selUnit.move}` + traits(selUnit) + (isStunned(selUnit) ? ' · STUNNED' : '') +
       (selUnit.team === game.turn ? ` · ${selUnit.attacked ? 'done' : selUnit.moved ? 'can still attack' : 'ready'}` : '') : '';
     const w = winner();
-    const turnHtml = w ? `<b style="color:rgb(${TEAM[w].map(c => c + 70)})">${teamName(w)} wins!</b> · press R twice for a new game`
+    const turnHtml = w ? `<b style="color:rgb(${TEAM[w].map(c => c + 70)})">${teamName(w)} wins!</b> · hold ⟲ Reset for a new game`
       : `Round ${game.round} · <b style="color:rgb(${TEAM[game.turn].map(c => c + 70)})">${poss(teamName(game.turn))} turn</b>` +
         (mode === 'online' ? (myTurn() ? ' · your move' : ' · waiting for opponent') : '');
     if (Date.now() - resetArmed > 2000 && lastTurnHtml !== turnHtml) { lastTurnHtml = turnHtml; turnEl.innerHTML = turnHtml; }
@@ -842,14 +1379,15 @@
     const dmLbl = `🧙 Dungeon Master: ${game.dm ? 'On' : 'Off'}`; if (bdm.textContent !== dmLbl) bdm.textContent = dmLbl;
     bdm.classList.toggle('on', !!game.dm); bdm.disabled = !isHost();
     if (dmActive()) {
-      const pb = (type, team, label) => `<button data-place="${type}:${team}" class="${placing && placing.type === type && placing.team === team ? 'on' : ''}">${label}</button>`;
+      const sideBtn = (t, lbl) => `<button data-side="${t}" class="${dmSide === t ? 'on' : ''}">${lbl}</button>`;
+      const pb = type => `<button data-place="${type}:${dmSide}" class="${placing && placing.type === type && placing.team === dmSide ? 'on' : ''}">${UNIT_TYPES[type].name}</button>`;
       const html = `<div class="t">🧙 Dungeon Master tools</div>
-        <div class="row"><span class="lbl">Heroes</span>${pb('knight', 'blue', 'Knight')}${pb('swordsman', 'blue', 'Swordsman')}</div>
-        <div class="row"><span class="lbl">Enemies</span>${pb('swordsman', 'red', 'Swordsman')}${pb('knight', 'red', 'Knight')}</div>
+        <div class="row"><span class="lbl">Place for</span>${sideBtn('blue', 'Heroes')}${sideBtn('red', 'Enemies')}</div>
+        <div class="grid">${Object.keys(UNIT_TYPES).map(pb).join('')}</div>
         <div class="row"><button data-act="heal">❤ Heal all heroes</button></div>
         <div class="sub">Unit types · values for new units (mana: hero units only)</div>
         <table class="st"><tr><th></th><th>HP</th><th>Mana</th></tr>
-        ${['knight', 'swordsman'].map(ty => `<tr><td>${UNIT_TYPES[ty].name}</td>
+        ${Object.keys(UNIT_TYPES).map(ty => `<tr><td>${UNIT_TYPES[ty].name}</td>
           <td><input type="number" min="1" max="999" data-type="${ty}" value="${typeMax(ty)}"></td>
           ${UNIT_TYPES[ty].hero ? `<td><input type="number" min="0" max="99" data-type="${ty}" data-stat="manaMax" value="${typeStat(ty, 'manaMax')}"></td>` : '<td class="na">–</td>'}</tr>`).join('')}</table>
         ${selUnit ? `<div class="sub">Selected: ${teamName(selUnit.team)} ${selUnit.name}</div>
@@ -937,6 +1475,7 @@
   document.getElementById('bdm').addEventListener('click', toggleDM);
   document.getElementById('dm').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.side) { dmSide = b.dataset.side; placing = placing ? { ...placing, team: dmSide } : null; }
     if (b.dataset.place) { const [type, team] = b.dataset.place.split(':'); placing = placing && placing.type === type && placing.team === team ? null : { type, team }; selUnit = null; sel = null; }
     if (b.dataset.act === 'remove') removeSelected();
     if (b.dataset.act === 'heal') healHeroes();
@@ -957,10 +1496,19 @@
   document.getElementById('bload').addEventListener('click', () => document.getElementById('fload').click());
   document.getElementById('fload').addEventListener('change', e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; });
   function resetGame() {
-    if (Date.now() - resetArmed > 2000) { resetArmed = Date.now(); turnEl.innerHTML = 'Press <b>R</b> again to reset the game for everyone'; lastTurnHtml = ''; return; }
-    resetArmed = 0; const st = freshState(game.seq + 1); st.last = { type: 'reset', seq: st.seq };
-    floats = []; applyState(st); publish(st.last);
+    const st = freshState(game.seq + 1); st.last = { type: 'reset', seq: st.seq };
+    floats = []; projectiles = []; applyState(st); publish(st.last); toast('New game started');
   }
+  // Reset must be held for 2 whole seconds (a fill bar shows progress)
+  const resetBtn = document.getElementById('breset'); let resetHold = null;
+  function resetCancel() { if (resetHold) { cancelAnimationFrame(resetHold.raf); resetHold = null; } resetBtn.style.setProperty('--p', '0%'); }
+  resetBtn.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return; resetCancel(); const t0 = performance.now();
+    const tick = now => { const f = Math.min(1, (now - t0) / 2000); resetBtn.style.setProperty('--p', (f * 100).toFixed(1) + '%');
+      if (f >= 1) { resetCancel(); resetGame(); } else resetHold.raf = requestAnimationFrame(tick); };
+    resetHold = { raf: requestAnimationFrame(tick) };
+  });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) resetBtn.addEventListener(ev, resetCancel);
 
   // ---------- Input ----------
   let down = null, dragging = false;
@@ -1014,9 +1562,9 @@
   addEventListener('keydown', e => {
     if (e.target && e.target.tagName === 'INPUT') { if (e.key === 'Enter') { if (e.target.id === 'code') p2pJoin(e.target.value); else e.target.blur(); } return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveFile(); return; }
+    { const k = e.key.toLowerCase(); if ('wasd'.includes(k) && k.length === 1 || k === 'shift') { held.add(k); if (k !== 'shift') return; } }
     if (e.repeat) return;
     const k = e.key.toLowerCase();
-    if (k === 'r') resetGame();
     if (k === 'escape') { if (placing) { placing = null; refreshUI(); return; } sel = null; selUnit = null; refreshUI(); }
     if (k === 'delete' || k === 'backspace') removeUnit(unitAt(hover) || selUnit);   // DM: delete the unit under the mouse
     if (k === ' ') { e.preventDefault(); endTurn(); }
@@ -1031,30 +1579,63 @@
   cv.addEventListener('contextmenu', e => {
     if (!selUnit || busy()) return;
     const h = pick(e.clientX, e.clientY); if (!h) return;
-    const u = selUnit, tgt = unitAt(h), here = [u.col, u.row];
+    const u = selUnit, ty = T(u), tgt = liveUnitAt(h), here = [u.col, u.row], dist = hexDist(here, h);
     const hint = (txt, hh) => { const m = center(...hh); addFloat(m.x + OX, m.y + OY - 20, txt, '#cfc9b4', 14); };
-    if (!canCommand(u)) { hint(winner() ? 'Game over' : u.team !== game.turn || !myTurn() ? 'Not your turn' : 'Already acted', here); return; }
+    const go = a => play(a, () => commit(a));
+    if (!canCommand(u)) { hint(winner() ? 'Game over' : isStunned(u) ? 'Stunned' : u.team !== game.turn || !myTurn() ? 'Not your turn' : 'Already acted', here); return; }
     if (tgt === u) return;
-    if (tgt) {
-      if (tgt.team === u.team || tgt.dying !== null) return;
-      if (u.attacked) { hint('Already attacked', here); return; }
-      let path = [];
-      if (hexDist(here, h) !== 1) {
-        if (u.moved) { hint('Already moved', here); return; }
-        const b = reach(u); let best = null;
-        for (const n of neighbors(...h)) { const d = b.dist.get(key(...n)); if (d != null && d > 0 && !unitAt(n) && (!best || d < best.d)) best = { n, d }; }
-        if (!best) { hint('Out of reach', h); return; }
-        path = pathTo(b, best.n);
-      }
-      const a = { type: 'attack', id: u.id, path, target: tgt.id };
-      play(a, () => commit(a)); return;
+    const moveTo = () => {
+      if (u.moved) { hint(ty.noMoveShoot && u.attacked ? 'Already shot' : 'Already moved', here); return; }
+      if (unitAt(h)) return;
+      const b = reach(u); if (!b.dist.has(key(...h))) { hint('Too far', h); return; }
+      go({ type: 'move', id: u.id, path: pathTo(b, h) });
+    };
+    // approach: best reachable tile from which the target is within r
+    const approach = r => {
+      const b = reach(u); let best = null;
+      for (const [k, d] of b.dist) { if (d === 0) continue; const tile = k.split(',').map(Number); if (unitAt(tile)) continue;
+        if (hexDist(tile, h) <= r && (!best || d < best.d)) best = { tile, d }; }
+      return best ? pathTo(b, best.tile) : null;
+    };
+    if (ty.ranged === 'mark') {                              // trebuchet: right-click marks a tile (empty neighbour = move)
+      if (!tgt && dist === 1) { moveTo(); return; }
+      if (u.moved) { hint('Moved: can\'t fire this turn', here); return; }
+      if (dist > ty.range) { hint('Out of range', h); return; }
+      go({ type: 'mark', id: u.id, col: h[0], row: h[1] }); return;
     }
-    if (u.moved) { hint('Already moved', here); return; }
-    const b = reach(u);
-    if (!b.dist.has(key(...h))) { hint('Too far', h); return; }
-    const a = { type: 'move', id: u.id, path: pathTo(b, h) };
-    play(a, () => commit(a));
+    if (ty.ranged === 'line' || ty.ranged === 'pierce') {    // crossbow & ballista: shoot along a straight line
+      if (!tgt) { moveTo(); return; }
+      const ld = lineDir(here, h);
+      if (!ld) { hint('Not in a straight line', h); return; }
+      if (ld.n > ty.range) { hint('Out of range', h); return; }
+      if (u.moved) { hint('Moved: can\'t shoot this turn', here); return; }
+      if (ty.ranged === 'line' && !firstInLine(here, ld.d, ty.range)) { hint('Blocked', h); return; }
+      go({ type: ty.ranged === 'line' ? 'bolt' : 'pierce', id: u.id, dir: ld.d }); return;
+    }
+    if (ty.ranged === 'arc') {                               // archers & horse archers
+      if (!tgt) { moveTo(); return; }
+      if (tgt.team === u.team) return;
+      if (dist <= ty.range) { if (ty.noMoveShoot && u.moved) { hint('Moved: can\'t shoot this turn', here); return; } go({ type: 'shoot', id: u.id, target: tgt.id }); return; }
+      if (ty.noMoveShoot || u.moved) { hint('Out of range', h); return; }
+      const path = approach(ty.range); if (!path) { hint('Out of reach', h); return; }
+      go({ type: 'shoot', id: u.id, path, target: tgt.id }); return;
+    }
+    if (!tgt) { moveTo(); return; }                          // melee units
+    if (tgt.team === u.team) return;
+    if (u.attacked) { hint('Already attacked', here); return; }
+    if (ty.charge && !u.moved) { const ld = lineDir(here, h); if (ld && ld.n >= 4 && ld.n <= ty.charge) { go({ type: 'charge', id: u.id, dir: ld.d }); return; } }
+    const r = ty.reach || 1; let path = [], from = here;
+    if (dist > r) {
+      if (u.moved) { hint('Already moved', here); return; }
+      path = approach(r); if (!path) { hint('Out of reach', h); return; }
+      from = path[path.length - 1];
+    }
+    const targets = [tgt.id];
+    if (r === 2 && hexDist(from, h) === 2) { const ld = lineDir(from, h); if (ld) { const mo = liveUnitAt(step(from, ld.d)); if (mo && mo.team !== u.team) targets.push(mo.id); } }
+    go({ type: 'attack', id: u.id, path, target: tgt.id, targets });
   });
+  addEventListener('keyup', e => held.delete(e.key.toLowerCase()));
+  addEventListener('blur', () => held.clear());
   addEventListener('resize', () => resize(false));
 
   // ---------- Start ----------
