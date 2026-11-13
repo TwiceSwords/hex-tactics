@@ -51,7 +51,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div class="t">Hex Board · prototype v0.20</div>
+  <div class="t">Hex Board · prototype v0.21</div>
   <div>Hex: <span id="hov">–</span> &nbsp; Selected: <span id="sel">–</span></div>
   <div id="info" style="color:#e2d6a6"></div>
   <div class="k">Drag: pan · Wheel: zoom · Left-click: select · Esc: deselect</div>
@@ -402,6 +402,7 @@
   // game = what both players share; units = the same plus local animation fields
   let game = { seq: 0, turn: 'blue', round: 1, dm: false, battle: false, types: {} };
   const typeMax = type => (game.types[type] && game.types[type].maxHp) || UNIT_TYPES[type].maxHp;   // DM can change a unit type's max HP
+  const hasRes = u => !game.dm || u.team === 'blue';          // in DM mode only heroes use stamina and mana
   const typeStat = (type, k) => { const t = game.types[type]; return t && typeof t[k] === 'number' ? t[k] : UNIT_TYPES[type][k]; };
   let units = [], floats = [], selUnit = null, afterIdle = null;
 
@@ -582,7 +583,7 @@
   function drawHealth(u, bx, by) {
     const w = S * 0.95, h = 6, x = bx - w / 2, y = by - 17.6 * CE * K - 22;
     const hasTurn = u.team === game.turn && u.dying === null && !winner() && !unitDone(u);
-    const rows = [['sta', 'staMax', '#4fb35a', 'rgba(79,179,90,0.28)'], ['mana', 'manaMax', '#4a7fe0', 'rgba(74,127,224,0.28)']].filter(b => u[b[1]] > 0);
+    const rows = [['sta', 'staMax', '#4fb35a', 'rgba(79,179,90,0.28)'], ['mana', 'manaMax', '#4a7fe0', 'rgba(74,127,224,0.28)']].filter(b => u[b[1]] > 0 && hasRes(u));
     const rh = 5, total = h + (rows.length ? 2 + rows.length * rh : 0);
     ctx.fillStyle = 'rgba(8,10,6,0.85)'; ctx.fillRect(x - 1.5, y - 1.5, w + 3, total + 3);
     // health: always red, notched
@@ -846,7 +847,7 @@
         <div class="row"><span class="lbl">Heroes</span>${pb('knight', 'blue', 'Knight')}${pb('swordsman', 'blue', 'Swordsman')}</div>
         <div class="row"><span class="lbl">Enemies</span>${pb('swordsman', 'red', 'Swordsman')}${pb('knight', 'red', 'Knight')}</div>
         <div class="row"><button data-act="heal">❤ Heal all heroes</button></div>
-        <div class="sub">Unit types · values for new units</div>
+        <div class="sub">Unit types · values for new units (stamina &amp; mana: heroes only)</div>
         <table class="st"><tr><th></th><th>HP</th><th>Stamina</th><th>Mana</th></tr>
         ${['knight', 'swordsman'].map(ty => `<tr><td>${UNIT_TYPES[ty].name}</td>
           <td><input type="number" min="1" max="999" data-type="${ty}" value="${typeMax(ty)}"></td>
@@ -855,8 +856,8 @@
         ${selUnit ? `<div class="sub">Selected: ${teamName(selUnit.team)} ${selUnit.name}</div>
         <table class="st"><tr><th></th><th>Current</th><th>Max</th></tr>
           <tr><td>HP</td><td><input type="number" min="1" max="999" data-unit="hp" value="${selUnit.hp}"></td><td><input type="number" min="1" max="999" data-unit="max" value="${selUnit.maxHp}"></td></tr>
-          <tr><td>Stamina</td><td><input type="number" min="0" max="99" data-unit="sta" value="${selUnit.sta}"></td><td><input type="number" min="0" max="99" data-unit="staMax" value="${selUnit.staMax}"></td></tr>
-          <tr><td>Mana</td><td><input type="number" min="0" max="99" data-unit="mana" value="${selUnit.mana}"></td><td><input type="number" min="0" max="99" data-unit="manaMax" value="${selUnit.manaMax}"></td></tr></table>
+          ${hasRes(selUnit) ? `<tr><td>Stamina</td><td><input type="number" min="0" max="99" data-unit="sta" value="${selUnit.sta}"></td><td><input type="number" min="0" max="99" data-unit="staMax" value="${selUnit.staMax}"></td></tr>
+          <tr><td>Mana</td><td><input type="number" min="0" max="99" data-unit="mana" value="${selUnit.mana}"></td><td><input type="number" min="0" max="99" data-unit="manaMax" value="${selUnit.manaMax}"></td></tr>` : ''}</table>
         <div class="row"><button data-act="remove">Remove</button></div>` : '<div class="sub">Click a unit to edit its HP, stamina and mana</div>'}
         <div class="k">${placing ? 'Click empty tiles to place · Esc to stop' : 'Pick a unit above, then click tiles to place it.<br>Drag any unit to move it · Del removes the unit under the mouse.'}</div>`;
       if (dmEl.dataset.h !== html) { dmEl.dataset.h = html; dmEl.innerHTML = html; }
