@@ -63,7 +63,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div class="t">Hex Board · prototype v0.33</div>
+  <div class="t">Hex Board · prototype v0.34</div>
   <div>Hex: <span id="hov">–</span> &nbsp; Selected: <span id="sel">–</span></div>
   <div id="info" style="color:#e2d6a6"></div>
   <div class="k">Drag / WASD: move camera · Wheel: zoom · Left-click: select · Esc: deselect</div>
@@ -565,6 +565,54 @@
     return m;
   }
 
+  // Warrior hero: layered leather armour (lamellar plates, pauldrons, bracers, leather cap) + the weapon of his passive
+  function buildWarrior(team, weapon = 'greatsword') {
+    const m = { v: [], f: [] }, LTH = [104, 72, 42], DLTH = [66, 44, 26], STUD = [176, 170, 150], BLADE = [205, 210, 218];
+    baseBody(m, team, { armor: LTH, legs: [70, 58, 46], tabard: false, shoulders: null });
+    for (let i = 0; i < 4; i++) part(m, boxG(4.15 - i * 0.05, 0.9, 2.65), i % 2 ? LTH : DLTH, { p: [0, 7.2 + i * 1.15, 0] });   // lamellar bands
+    for (const [x, y] of [[-1.2, 8.0], [0, 8.0], [1.2, 8.0], [-1.2, 10.3], [0, 10.3], [1.2, 10.3]]) part(m, boxG(0.32, 0.32, 0.12), STUD, { p: [x, y, 1.33], bias: 3 });
+    part(m, boxG(2.9, 3.4, 0.2, 1.05), team, { p: [0, 4.0, 1.25], bias: 1 });                     // team war-skirt flap
+    part(m, boxG(4.5, 0.75, 2.9), DLTH, { p: [0, 6.7, 0] });                                       // heavy belt
+    part(m, boxG(0.9, 0.75, 0.25), C.GOLD, { p: [0, 6.7, 1.45], bias: 3 });
+    for (const sx of [-1, 1]) {
+      part(m, boxG(1.9, 1.5, 2.9, 0.8, 0.9), DLTH, { p: [sx * 2.3, 12.6, 0] });                 // big leather pauldrons
+      part(m, boxG(1.7, 0.4, 2.7), LTH, { p: [sx * 2.35, 12.3, 0] });
+      part(m, boxG(1.35, 1.5, 1.4), DLTH, { p: [sx * 0.95, 2.6, 0.1] });                         // greaves
+    }
+    part(m, boxG(2.4, 0.9, 2.2), DLTH, { p: [0, 13.4, 0] });                                       // gorget
+    part(m, cylG(1.1, 1.1, 10, 0.95), DLTH, { p: [0, 15.5, 0.05] });                               // leather cap
+    part(m, cylG(1.2, 0.3, 10), LTH, { p: [0, 15.4, 0.05] });
+    part(m, boxG(1.6, 0.35, 0.25), [60, 40, 30], { p: [0, 14.1, 0.92], bias: 2 });                  // beard strap
+    const two = ['greatsword', 'battleaxe', 'halberd'].includes(weapon);
+    const rH = two ? arm(m, [-2.35, 13.0, 0.1], [-0.6, 0, -0.05], [-1.1, 0, -0.45], LTH, DLTH) : arm(m, [-2.35, 13.0, 0.1], [-0.7, 0, 0.1], [-1.3, 0, 0.0], LTH, DLTH);
+    const lH = two ? arm(m, [2.35, 13.0, 0.1], [-0.6, 0, 0.05], [-1.1, 0, 0.55], LTH, DLTH) : arm(m, [2.35, 13.0, 0.1], [-0.7, 0, -0.1], [-1.3, 0, 0.0], LTH, DLTH);
+    if (weapon === 'greatsword') {
+      const gs = [0.55, 0, -0.35];
+      part(m, boxG(0.36, 2.9, 0.36), C.DARK, { o: [0, -1.4, 0], r: gs, p: rH });
+      part(m, boxG(3.0, 0.36, 0.5), C.GOLD, { o: [0, 1.45, 0], r: gs, p: rH });
+      part(m, boxG(0.75, 11.5, 0.16, 0.35), BLADE, { o: [0, 1.8, 0], r: gs, p: rH });
+    } else if (weapon === 'battleaxe') {
+      const ba = [0.55, 0, -0.35];
+      part(m, boxG(0.34, 12.5, 0.34), C.LWOOD, { o: [0, -2.5, 0], r: ba, p: rH });
+      part(m, prismG([[0, 0], [3.0, -1.2], [3.3, 1.5], [3.0, 4.2], [0, 3.0], [-3.0, 4.2], [-3.3, 1.5], [-3.0, -1.2]], 0.2), BLADE, { o: [0, 6.2, -0.1], r: ba, p: rH });   // double-bitted head
+    } else if (weapon === 'halberd') {
+      const hb = [0.38, 0, 0];
+      part(m, boxG(0.32, 18, 0.32), C.LWOOD, { o: [0, -7.5, 0], r: hb, p: rH });
+      part(m, prismG([[0, 0], [2.3, 0.5], [2.3, 2.9], [0, 2.4]], 0.16), BLADE, { o: [0.15, 7.8, -0.08], r: hb, p: rH });
+      part(m, prismG([[0, 0.6], [-1.2, 1.3], [0, 1.7]], 0.16), BLADE, { o: [-0.15, 7.8, -0.08], r: hb, p: rH });
+      part(m, boxG(0.3, 2.4, 0.3, 0.1, 0.1), BLADE, { o: [0, 10.4, 0], r: hb, p: rH });
+    } else if (weapon === 'dualaxes') {
+      for (const [H, s] of [[rH, 1], [lH, -1]]) { const r = [0.9, 0, s * 0.15];
+        part(m, boxG(0.3, 4.8, 0.3), C.LWOOD, { o: [0, -0.8, 0], r, p: H });
+        part(m, prismG([[0, 0], [1.9, -0.6], [2.1, 1.0], [1.9, 2.4], [0, 1.6]], 0.18), BLADE, { o: [0, 2.6, -0.09], r, p: H }); }
+    } else {                                                              // dual swords
+      for (const [H, s] of [[rH, 1], [lH, -1]]) { const r = [0.85, 0, s * 0.12];
+        part(m, boxG(0.3, 1.4, 0.3), C.DARK, { o: [0, -0.7, 0], r, p: H });
+        part(m, boxG(1.7, 0.28, 0.4), C.GOLD, { o: [0, 0.7, 0], r, p: H });
+        part(m, boxG(0.5, 6.6, 0.12, 0.35), BLADE, { o: [0, 0.85, 0], r, p: H }); }
+    }
+    return m;
+  }
   // Assassin hero: dark leathers, deep hood with a face mask, team sash and scarf, a dagger in each hand
   function buildAssassin(team) {
     const m = { v: [], f: [] }, BLK = [40, 38, 42], DBLK = [26, 24, 28], LTH = [70, 54, 40], SASH = team.map(c => c * 0.8 + 20), HOOD = [34, 32, 38],
@@ -699,8 +747,9 @@
   // unit roster. h = model height (for bars), mounted/antiCav/fragile/ranged drive the combat rules
   const UNIT_TYPES = {
     swordsman:   { name: 'Swordsman',    maxHp: 14, dmg: 3, move: 2, h: 17.6, build: buildSwordsman },
-    knight:      { name: 'Paladin',      maxHp: 12, dmg: 3, move: 2, h: 18.4, hero: true, staMax: 0, manaMax: 4, hpCap: 40, build: buildKnight },
-    assassin:    { name: 'Assassin',     maxHp: 12, dmg: 4, move: 3, h: 17.4, hero: true, staMax: 0, manaMax: 4, hpCap: 20, build: buildAssassin },
+    knight:      { name: 'Paladin',      maxHp: 12, dmg: 2, dmgCap: 3, move: 2, h: 18.4, hero: true, staMax: 0, manaMax: 4, hpCap: 40, build: buildKnight },
+    warrior:     { name: 'Warrior',      maxHp: 12, dmg: 3, dmgCap: 4, move: 2, h: 18.2, hero: true, staMax: 0, manaMax: 4, hpCap: 20, build: buildWarrior },
+    assassin:    { name: 'Assassin',     maxHp: 12, dmg: 3, dmgCap: 4, move: 3, h: 17.4, hero: true, staMax: 0, manaMax: 4, hpCap: 20, build: buildAssassin },
     mage:        { name: 'Mage',         maxHp: 12, dmg: 2, move: 2, h: 19.6, hero: true, staMax: 0, manaMax: 4, hpCap: 20, ranged: 'arc', range: 5, magic: true, build: buildMage },
     ranger:      { name: 'Ranger',       maxHp: 12, dmg: 3, move: 2, h: 17.8, hero: true, staMax: 0, manaMax: 4, hpCap: 20, ranged: 'arc', range: 5, noMoveShoot: true, build: buildRanger },
     spearman:    { name: 'Spearman',     maxHp: 12, dmg: 3, move: 2, h: 17.6, antiCav: 1, build: buildSpearman },
@@ -717,7 +766,7 @@
   const T = u => UNIT_TYPES[u.type] || UNIT_TYPES.swordsman;
 
   const meshCache = {};
-  const meshFor = (type, team) => meshCache[type + team] || (meshCache[type + team] = UNIT_TYPES[type].build(TEAM[team]));
+  const meshFor = (type, team, v = '') => meshCache[type + team + v] || (meshCache[type + team + v] = UNIT_TYPES[type].build(TEAM[team], v || undefined));
   const START = [
     { id: 'b1', col: 7, row: 8, team: 'blue' }, { id: 'b2', col: 7, row: 11, team: 'blue' }, { id: 'b3', col: 7, row: 14, team: 'blue' },
     { id: 'r1', col: 14, row: 8, team: 'red' }, { id: 'r2', col: 14, row: 11, team: 'red' }, { id: 'r3', col: 14, row: 14, team: 'red' },
@@ -732,7 +781,7 @@
   function runtimeUnit(s) {
     const type = UNIT_TYPES[s.type] ? s.type : 'swordsman', T = UNIT_TYPES[type];
     const staMax = s.staMax ?? typeStat(type, 'staMax'), manaMax = s.manaMax ?? typeStat(type, 'manaMax');
-    return { name: T.name, maxHp: T.maxHp, dmg: T.dmg, move: T.move, moved: false, attacked: false, ...s, type,
+    return { name: T.name, maxHp: T.maxHp, move: T.move, moved: false, attacked: false, ...s, dmg: T.dmg + (s.dmgBought || 0), dmgBought: s.dmgBought || 0, type,
       staMax, manaMax, sta: s.sta ?? staMax, mana: s.mana ?? manaMax,
       hpShown: s.hp, want: s.face, mesh: meshFor(type, s.team), phase: Math.random() * 6,
       cards: s.cards || (T.hero ? emptyCards() : null), dots: s.dots || [], tauntR: s.tauntR || 0, guard: s.guard || null,
@@ -750,14 +799,14 @@
         ...(u.cards ? { cards: u.cards } : {}), ...(u.tauntR ? { tauntR: u.tauntR } : {}), ...(u.guard ? { guard: u.guard } : {}),
         ...(u.dots && u.dots.length ? { dots: u.dots } : {}), ...(u.skillUsed ? { skillUsed: true } : {}),
         ...(u.raining ? { raining: true } : {}), ...(u.watch ? { watch: u.watch } : {}), ...(u.rain && u.rain.length ? { rain: u.rain } : {}),
-        ...(u.slows && u.slows.length ? { slows: u.slows } : {}), ...(u.slowNow ? { slowNow: u.slowNow } : {}), ...(u.manaBought ? { manaBought: u.manaBought } : {}), ...(u.invis ? { invis: u.invis } : {}), ...(u.ambush ? { ambush: u.ambush } : {}) })), points: game.points };
+        ...(u.slows && u.slows.length ? { slows: u.slows } : {}), ...(u.slowNow ? { slowNow: u.slowNow } : {}), ...(u.manaBought ? { manaBought: u.manaBought } : {}), ...(u.invis ? { invis: u.invis } : {}), ...(u.dmgBought ? { dmgBought: u.dmgBought } : {}), ...(u.dsMark ? { dsMark: u.dsMark } : {}), ...(u.ambush ? { ambush: u.ambush } : {}) })), points: game.points };
   }
   function applyState(st) {                       // snap to a shared state (keeps smooth facing/HP bars)
     const old = new Map(units.map(u => [u.id, u]));
     units = st.units.map(s => { const o = old.get(s.id);
       if (!o || o.type !== (UNIT_TYPES[s.type] ? s.type : 'swordsman') || o.team !== s.team) return runtimeUnit(s);
       if (typeof s.face === 'number') o.want = s.face;          // keep facing in sync with the shared game
-      Object.assign(o, { col: s.col, row: s.row, hp: s.hp, maxHp: s.maxHp || o.maxHp, sta: s.sta ?? o.sta, staMax: s.staMax ?? o.staMax, mana: s.mana ?? o.mana, manaMax: s.manaMax ?? o.manaMax, moved: s.moved, attacked: s.attacked, stun: s.stun || 0, stunActive: !!s.stunActive, mark: s.mark || null, cards: s.cards || (T(o).hero ? emptyCards() : null), tauntR: s.tauntR || 0, guard: s.guard || null, dots: s.dots || [], skillUsed: !!s.skillUsed, raining: !!s.raining, watch: s.watch || null, rain: s.rain || null, slows: s.slows || null, slowNow: s.slowNow || null, manaBought: s.manaBought || 0, invis: s.invis || null, ambush: s.ambush || 0, wait: 0, watchHit: null, noTurn: false, path: null, atk: null, dying: null, dragPos: null, push: false, fast: false });
+      Object.assign(o, { col: s.col, row: s.row, hp: s.hp, maxHp: s.maxHp || o.maxHp, sta: s.sta ?? o.sta, staMax: s.staMax ?? o.staMax, mana: s.mana ?? o.mana, manaMax: s.manaMax ?? o.manaMax, moved: s.moved, attacked: s.attacked, stun: s.stun || 0, stunActive: !!s.stunActive, mark: s.mark || null, cards: s.cards || (T(o).hero ? emptyCards() : null), tauntR: s.tauntR || 0, guard: s.guard || null, dots: s.dots || [], skillUsed: !!s.skillUsed, raining: !!s.raining, watch: s.watch || null, rain: s.rain || null, slows: s.slows || null, slowNow: s.slowNow || null, manaBought: s.manaBought || 0, dmgBought: s.dmgBought || 0, dmg: UNIT_TYPES[o.type].dmg + (s.dmgBought || 0), dsMark: s.dsMark || null, invis: s.invis || null, ambush: s.ambush || 0, wait: 0, watchHit: null, noTurn: false, path: null, atk: null, dying: null, dragPos: null, push: false, fast: false });
       return o; });
     game = { seq: st.seq, turn: st.turn, round: st.round, dm: !!st.dm, battle: !!st.battle, types: (st.types && typeof st.types === 'object') ? st.types : {},
       points: { blue: 0, red: 0, ...(st.points && typeof st.points === 'object' ? st.points : {}) }, water: Array.isArray(st.water) ? st.water : [] };
@@ -875,7 +924,7 @@
     for (const h of lineTiles(from, d, n)) { if (blockedTile(h)) return null; const o = liveUnitAt(h); if (o) return { unit: o, tile: h }; }
     return null;
   }
-  const meleeDmg = (a, t) => a.dmg * (T(a).antiCav && isMounted(t) ? 2 : 1);     // spears & halberds: double vs mounted
+  const meleeDmg = (a, t) => a.dmg * (antiCavOf(a) && isMounted(t) ? 2 : 1);     // spears & halberds: double vs mounted
   const rangedDmg = (base, t) => base * (T(t).fragile ? 2 : 1);                  // halberdiers & swordmasters: double from missiles
   const faceDir = (u, d) => { const a = center(u.col, u.row), b = center(...step([u.col, u.row], d)); u.want = Math.atan2(b.x - a.x, (b.y - a.y) / SQ); };
   const faceTile = (u, h) => { const a = center(u.col, u.row), b = center(h[0], h[1]); u.want = Math.atan2(b.x - a.x, (b.y - a.y) / SQ); };
@@ -896,9 +945,9 @@
   function pushUnit(u, h) { u.path = [h]; u.segT = 0; u.push = true; u.then = null; }
   // anti-charge: lancer charging a spear/halberd, or passing within 1 (spear) / 2 (halberd) tiles of one, gets stunned
   function antiCharge(u, tiles, tgt) {
-    if (tgt && T(tgt).antiCav && tgt.team !== u.team) return true;
-    const foes = units.filter(o => o.team !== u.team && o.dying === null && o.hp > 0 && T(o).antiCav);
-    return tiles.some(h => foes.some(o => hexDist(h, [o.col, o.row]) <= T(o).antiCav));
+    if (tgt && antiCavOf(tgt) && tgt.team !== u.team) return true;
+    const foes = units.filter(o => o.team !== u.team && o.dying === null && o.hp > 0 && antiCavOf(o));
+    return tiles.some(h => foes.some(o => hexDist(h, [o.col, o.row]) <= antiCavOf(o)));
   }
   // projectiles: arrows arc high, bolts fly straight, boulders arc very high
   const PSPEED = { orb: 800, firebolt: 1100, fireball: 650, arrow: 950, shot: 1500, rain: 900, bolt: 1500, pierce: 1300, boulder: 650 }, PARC = { orb: 0.12, firebolt: 0.02, fireball: 0.35, arrow: 0.28, shot: 0.03, rain: 0, bolt: 0, pierce: 0, boulder: 0.55 };
@@ -1074,8 +1123,55 @@
     if (wasAlive && t.hp <= 0 && t.team !== u.team && hasPassive(u, 'bloodthirst') && u.mana < u.manaMax) { u.mana = u.manaMax; floatOn(u, 'MANA FULL', '#8fb8ff', 0, 15); }
     return r;
   }
-  const HP_PER_POINT = 2, MANA_CAP = 10;
-  const baseDmg = u => hasPassive(u, 'siphon') ? 1 : u.dmg + (hasPassive(u, 'keeneye') ? 2 : 0);
+  // Warrior cards: the passive is his weapon (the model changes with it)
+  const WEAPONS = ['greatsword', 'battleaxe', 'halberd', 'dualaxes', 'dualswords'];
+  Object.assign(CARDS, {
+    greatsword: { kind: 'passive', name: 'Greatsword', text: () => 'Two-handed greatsword: his basic attack deals +2 damage.' },
+    battleaxe:  { kind: 'passive', name: 'Battleaxe', text: () => 'His basic attack makes the target bleed: 1 damage per turn for 2 turns.' },
+    halberd:    { kind: 'passive', name: 'Halberd', text: () => 'Reach 2 in a straight line. Every basic attack sweeps 4 tiles: the tile he aims at, the tile behind it, and the tiles left and right of it. Double damage to mounted units. Anti-cavalry like halberdiers. Never hurts friends.' },
+    dualaxes:   { kind: 'passive', name: 'Dual Axes', text: () => 'Every enemy he kills gives him his whole turn back (move, attack and skill again; no extra mana).' },
+    dualswords: { kind: 'passive', name: 'Dual Swords', text: () => 'Basic attacks mark the target. Each further hit on the same target gets a growing bonus: +2, +5, +8, +11, +14. Hitting someone else moves the mark and starts over.' },
+    dash:   { kind: 'skill', name: 'Dash', cost: () => 4, target: 'tile', range: l => l,
+      text: l => `Dash to a tile within ${l}. If an enemy is there, he stops next to it and hits it with his basic attack.` },
+    pstrike: { kind: 'skill', name: 'Power Strike', cost: l => 8 - l, target: 'enemy', range: () => 1,
+      text: () => 'An extra hit with his basic attack damage (no bleed or mark), on an enemy in his reach.' },
+  });
+  HERO_CARDS.warrior = { passive: WEAPONS, skill: ['dash', 'pstrike'] };
+  const weaponOf = u => WEAPONS.includes(u.cards && u.cards.passive) ? u.cards.passive : 'greatsword';
+  const antiCavOf = u => T(u).antiCav || (u.type === 'warrior' && hasPassive(u, 'halberd') ? 2 : 0);
+  const dsBonus = lvl => 3 * lvl - 1;                                    // Dual Swords mark: +2, +5, +8, +11, +14
+  function halberdTiles(from, d) {                                       // aimed tile, the one behind it, left and right of it
+    const main = step(from, d);
+    return [main, step(main, d), step(from, (d + 1) % 6), step(from, (d + 5) % 6)].filter(onBoard);
+  }
+  function refreshTurn(u) { u.moved = false; u.attacked = false; u.skillUsed = false; floatOn(u, 'FULL TURN!', '#ffd27a', 18, 17); }
+  // one warrior hit: weapon effects, Dual Swords mark, kill refresh
+  function warriorHit(u, t, basic = true) {
+    if (!t || t.dying !== null || t.hp <= 0) return;
+    let d = baseDmg(u);
+    if (basic && hasPassive(u, 'dualswords')) {
+      const mk = u.dsMark;
+      if (mk && mk.id === t.id) { d += dsBonus(mk.lvl); u.dsMark = { id: t.id, lvl: Math.min(5, mk.lvl + 1) }; }
+      else u.dsMark = { id: t.id, lvl: 1 };
+    }
+    if (antiCavOf(u) && (isMounted(t) || T(t).big)) d *= 2;
+    const alive = t.hp > 0, r = dealDamage(t, d, { melee: true, src: u });
+    if (basic && hasPassive(u, 'battleaxe') && !r.blocked && t.hp > 0) bleedUnit(t, 1, 2);
+    if (alive && t.hp <= 0 && t.team !== u.team && hasPassive(u, 'dualaxes')) refreshTurn(u);
+  }
+  const bleedOf = t => { for (const o of units) for (const d of (o.dots || [])) if (d.kind === 'bleed' && ((o === t && !d.guardOf) || d.guardOf === t.id)) return d; return null; };
+  function bleedUnit(t, dmg, turns) {                                    // re-applying refreshes the bleed
+    for (const o of units) if (o.dots) o.dots = o.dots.filter(d => !(d.kind === 'bleed' && ((o === t && !d.guardOf) || d.guardOf === t.id)));
+    applyDot(t, dmg, turns, 'bleed'); floatOn(t, '🩸 BLEEDING', '#ff7a7a', 18, 15);
+  }
+  // can a warrior hit h from tile 'from'? returns the hex direction, or null
+  function warriorAim(u, from, h) {
+    const ld = lineDir(from, h); if (!ld) return null;
+    if (ld.n === 1 || (ld.n === 2 && hasPassive(u, 'halberd'))) return ld.d;
+    return null;
+  }
+  const HP_PER_POINT = 2, MANA_CAP = 10, DMG_PRICE = 2;
+  const baseDmg = u => hasPassive(u, 'siphon') ? 1 : u.dmg + (hasPassive(u, 'keeneye') || (u.type === 'warrior' && hasPassive(u, 'greatsword')) ? 2 : 0);
   const noMoveShoot = u => !!T(u).noMoveShoot && !hasPassive(u, 'skirmisher');
   const moveOf = u => { const m = u.invis ? Math.min(u.move, 2) : u.move; return u.slowNow === 'root' ? 0 : u.slowNow === 'half' ? Math.max(1, Math.floor(m / 2)) : m; };
   const canSkillNow = u => !!T(u).hero && (!u.skillUsed || u.raining) && !(u.attacked && !combo(u) && !u.raining) && !u.watch && !u.stunActive;
@@ -1191,7 +1287,7 @@
       const was = { attacked: u.attacked, skillUsed: u.skillUsed };
       u.mana = Math.max(0, (u.mana || 0) - card.cost(L)); if (!combo(u)) u.attacked = true; u.skillUsed = true;
       if (a.skill === 'blink' && L >= 4) Object.assign(u, was);     // Blink Lv 4+: costs only mana
-      if (mageSkill(u, a, card, L, tgt) || assassinSkill(u, a, card, L, tgt)) return;   // the hero's action this turn (Quick Draw keeps the shot); may still move
+      if (mageSkill(u, a, card, L, tgt) || assassinSkill(u, a, card, L, tgt) || warriorSkill(u, a, card, L, tgt)) return;   // the hero's action this turn (Quick Draw keeps the shot); may still move
       if (rangerSkill(u, a, card, L, tgt)) return;
       if (a.skill === 'smite' || a.skill === 'bash') {
         if (!tgt) return; faceToward(u, tgt);
@@ -1228,7 +1324,7 @@
         u.fast = false;
         const stunned = antiCharge(u, lane.length ? lane : [here()], tgt);
         if (tgt) { faceToward(u, tgt); u.atk = { target: tgt, t: 0, hit: false, onHit: () => {
-          if (T(tgt).antiCav) dealDamage(tgt, u.dmg, { melee: true, src: u });     // spears & halberds brace: only base damage, no stun
+          if (antiCavOf(tgt)) dealDamage(tgt, u.dmg, { melee: true, src: u });     // spears & halberds brace: only base damage, no stun
           else { const r = dealDamage(tgt, u.dmg * 2, { melee: true, src: u }); if (!r.blocked) stunUnit(tgt); }
           if (stunned) stunUnit(u); } }; }
         else if (stunned) stunUnit(u);
@@ -1238,7 +1334,13 @@
     moveUnit(u, path, () => {
       if (a.type === 'attack') {
         const ts = (a.targets || [a.target]).map(id => units.find(x => x.id === id)).filter(t => t && t.dying === null);
-        if (ts.length && u.type === 'assassin') { breakInvis(u); faceToward(u, ts[0]); u.atk = { target: ts[0], t: 0, hit: false, onHit: () => assassinHit(u, ts[0], u.dmg) }; }
+        if (u.type === 'warrior') {
+          const tg = ts[0] || null, d = typeof a.dir === 'number' ? a.dir : null;
+          if (tg) faceToward(u, tg);
+          u.atk = tg && { target: tg, t: 0, hit: false, onHit: () => {
+            if (hasPassive(u, 'halberd') && d !== null) { for (const h of halberdTiles([u.col, u.row], d)) { const o = liveUnitAt(h); if (o && o.team !== u.team) warriorHit(u, o); } }
+            else warriorHit(u, tg); } };
+        } else if (ts.length && u.type === 'assassin') { breakInvis(u); faceToward(u, ts[0]); u.atk = { target: ts[0], t: 0, hit: false, onHit: () => assassinHit(u, ts[0], u.dmg) }; }
         else if (ts.length) { faceToward(u, ts[0]); u.atk = { target: ts[0], t: 0, hit: false, onHit: () => ts.forEach(t => dealDamage(t, meleeDmg(u, t), { melee: true, src: u })) }; }
         u.attacked = true; if (!hasPassive(u, 'flurry')) u.moved = true;
       } else if (a.type === 'shoot') {                 // archers & horse archers: arcing arrow
@@ -1285,6 +1387,25 @@
         const m = tileAt([a.col, a.row]); addFloat(m.x, m.y - 30, 'Target marked', '#ffb08a', 14);
       }
     });
+  }
+  // Warrior skills (return true when handled)
+  function warriorSkill(u, a, card, L, tgt) {
+    const sk = a.skill;
+    if (sk === 'dash') {                                // fast straight dash; an enemy on the tile gets his basic attack
+      const dest = [a.col, a.row], foe = liveUnitAt(dest);
+      let stop = dest;
+      if (foe) { let best = null; for (const n of [...neighbors(...dest)]) { const o = unitAt(n); if ((o && o !== u) || blockedTile(n)) continue; const dd = hexDist(n, [u.col, u.row]); if (!best || dd < best.d) best = { n, d: dd }; } stop = best ? best.n : null; }
+      const hit = () => { u.fast = false; if (foe && foe.team !== u.team) { faceToward(u, foe); u.atk = { target: foe, t: 0, hit: false, onHit: () => warriorHit(u, foe) }; } };
+      faceTile(u, dest); floatOn(u, 'DASH!', '#ffd27a');
+      if (stop && (stop[0] !== u.col || stop[1] !== u.row)) { u.fast = true; moveUnit(u, [stop], hit); } else hit();
+      return true;
+    }
+    if (sk === 'pstrike') {
+      if (!tgt) return true; faceToward(u, tgt);
+      u.atk = { target: tgt, t: 0, hit: false, onHit: () => { floatOn(tgt, 'POWER STRIKE', '#ffd27a', 18, 15); warriorHit(u, tgt, false); } };
+      return true;
+    }
+    return false;
   }
   // Assassin skills (return true when handled)
   function assassinSkill(u, a, card, L, tgt) {
@@ -1498,6 +1619,7 @@
         ctx.strokeStyle = 'rgba(255,210,58,0.95)'; ctx.lineWidth = 4; ctx.setLineDash([9, 6]); ctx.lineDashOffset = -t * 30;
         ctx.beginPath(); ctx.ellipse(bx, by, U * 0.85 * pr, U * 0.85 * SQ * pr, 0, 0, 7); ctx.stroke(); ctx.setLineDash([]);
       }
+      if (u.type === 'warrior') { const w = weaponOf(u); if (u.meshKey !== w) { u.mesh = meshFor('warrior', u.team, w); u.meshKey = w; } }
       drawMesh(ctx, u.mesh, bx, by - walk + (u.dying || 0) * 6, u.face, t + u.phase, u.flash, dz ? 1 : 0);
       if (dz) {                                          // stars circling the head
         const hy = by - headY(u) * 0.9 - 10;
@@ -1526,6 +1648,14 @@
     const rows = [['mana', 'manaMax', '#4a7fe0', 'rgba(74,127,224,0.28)']].filter(b => u[b[1]] > 0 && hasRes(u));
     const rh = 5, total = h + (rows.length ? 2 + rows.length * rh : 0);
     ctx.fillStyle = 'rgba(8,10,6,0.85)'; ctx.fillRect(x - 1.5, y - 1.5, w + 3, total + 3);
+    const bl = u.dying === null && bleedOf(u), dsm = u.dying === null && units.find(w => w.dsMark && w.dsMark.id === u.id && w.dying === null && hasPassive(w, 'dualswords'));
+    if (bl || dsm) {                                            // bleeding token (left) and Dual Swords mark (left of that)
+      ctx.save(); ctx.font = '800 10px system-ui,sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; let lx = x - 8;
+      for (const [txt, bg, fg] of [bl && [`🩸${bl.dmg}×${bl.turns}`, 'rgba(40,6,6,0.88)', '#ff9a9a'], dsm && [`⚔+${dsBonus(dsm.dsMark.lvl)}`, 'rgba(36,26,6,0.9)', '#ffd27a']].filter(Boolean)) {
+        const tw = ctx.measureText(txt).width + 8; lx -= tw; ctx.fillStyle = bg; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(lx, y - 5, tw, 16, 4) : ctx.rect(lx, y - 5, tw, 16); ctx.fill();
+        ctx.fillStyle = fg; ctx.fillText(txt, lx + 4, y + 3.5); lx -= 4; }
+      ctx.restore();
+    }
     const bn = u.dying === null && burnOf(u);
     if (bn) {                                                   // burning token: damage per turn × turns left
       const tx = x + w + 6, ty2 = y + 3; ctx.save();
@@ -1682,6 +1812,11 @@
     if (ty.ranged === 'mark' && !u.moved && hexDist(here, hover) <= ty.range && !(hexDist(here, hover) === 1 && !tgt)) { drawCrosshair(hover, 'rgba(255,150,110,0.7)', 1, t); return; }
     if (ty.magic && hasPassive(u, 'mender') && tgt && tgt.team === u.team && tgt !== u && hexDist(here, hover) <= ty.range && canShootNow(u)) { outlineHex(hover, 'rgba(120,255,160,0.95)', 4); label(tgt, `+${Math.min(3, tgt.maxHp - tgt.hp)}`, '#9dffb4'); return; }
     if (!tgt || tgt.team === u.team || hiddenFromMe(tgt)) return;
+    if (u.type === 'warrior' && canCommand(u) && !u.attacked) { const d = warriorAim(u, here, hover);
+      if (d !== null) { const tiles = hasPassive(u, 'halberd') ? halberdTiles(here, d) : [hover];
+        for (const hh of tiles) { tintHex(hh, 'rgba(245,105,75,0.18)'); const o = liveUnitAt(hh); if (o && o.team !== u.team && !hiddenFromMe(o)) {
+          let dm = baseDmg(u); if (hasPassive(u, 'dualswords') && u.dsMark && u.dsMark.id === o.id) dm += dsBonus(u.dsMark.lvl); if (antiCavOf(u) && isMounted(o)) dm *= 2; label(o, `-${dm}`); } }
+        return; } }
     if (u.type === 'assassin' && hexDist(here, hover) === 1 && canCommand(u) && !u.attacked) { const m = hasPassive(u, 'backstab') ? backMult(tgt, here) : 1; label(tgt, `-${(u.dmg + (u.ambush || 0)) * m}${m > 1 ? ` (×${m})` : ''}`); return; }
     if (ty.magic && hasPassive(u, 'mender') && !T(tgt).undead) return;
     if (ty.ranged === 'arc' && hexDist(here, hover) <= ty.range && canShootNow(u)) { outlineHex(hover, 'rgba(255,70,50,0.95)', 4); label(tgt, `-${ty.magic ? baseDmg(u) : rangedDmg(baseDmg(u), tgt)}`); return; }
@@ -1689,7 +1824,7 @@
       const lane = []; let first = null;
       for (const h of lineTiles(here, ld.d, ty.charge)) { const o = liveUnitAt(h); if (o) { first = o; break; } lane.push(h); }
       lane.forEach(h => tintHex(h, 'rgba(240,170,60,0.22)'));
-      if (first) { outlineHex([first.col, first.row], 'rgba(255,70,50,0.95)', 4); label(first, T(first).antiCav ? `CHARGE -${u.dmg} (braced)` : `CHARGE -${u.dmg * 2} · STUN`, first.team === u.team ? '#ffd27a' : '#ffb4a0'); }
+      if (first) { outlineHex([first.col, first.row], 'rgba(255,70,50,0.95)', 4); label(first, antiCavOf(first) ? `CHARGE -${u.dmg} (braced)` : `CHARGE -${u.dmg * 2} · STUN`, first.team === u.team ? '#ffd27a' : '#ffb4a0'); }
       if (antiCharge(u, lane.length ? lane : [here], first)) label(u, '⚠ spears: lancer stunned', '#ffd27a');
       return;
     }
@@ -1741,6 +1876,9 @@
       return;
     }
     if (armed.skill === 'blink') { for (const k of areaAround(here, card.range(L))) { const hh = k.split(',').map(Number); if (!unitAt(hh) && !blockedTile(hh)) { tintHex(hh, 'rgba(160,200,255,0.18)'); } } if (hover && !unitAt(hover) && hexDist(here, hover) <= card.range(L)) outlineHex(hover, 'rgba(170,210,255,0.95)', 4); return; }
+    if (armed.skill === 'dash') { const zone = areaAround(here, card.range(L)); zone.delete(key(...here)); drawZone(zone, 'rgba(255,210,110,0.08)', 'rgba(255,215,120,0.85)', false);
+      if (hover && zone.has(key(...hover))) { outlineHex(hover, 'rgba(255,215,120,0.95)', 4); const o = liveUnitAt(hover); if (o && o.team !== u.team && !hiddenFromMe(o)) label(o, `-${baseDmg(u)}`); } return; }
+    if (armed.skill === 'pstrike') { for (const o of units) if (o.team !== u.team && o.dying === null && !hiddenFromMe(o) && warriorAim(u, here, [o.col, o.row]) !== null) { outlineHex([o.col, o.row], 'rgba(255,70,50,0.95)', 4); label(o, `-${baseDmg(u) * (antiCavOf(u) && isMounted(o) ? 2 : 1)}`); } return; }
     if (armed.skill === 'shadowstep') {
       drawZone(areaAround(here, card.range(L)), 'rgba(150,110,220,0.07)', 'rgba(170,130,240,0.85)', false);
       for (const o of units) if (o !== u && o.dying === null && !hiddenFromMe(o) && hexDist(here, [o.col, o.row]) <= card.range(L)) {
@@ -2008,7 +2146,8 @@
     if (ty.range) t.push(`Range ${ty.range}`);
     if (ty.reach) t.push(`Reach ${ty.reach}`);
     if (ty.charge) t.push('Charge 4-6');
-    if (ty.antiCav) t.push(`Anti-cavalry (${ty.antiCav})`);
+    if (antiCavOf(u)) t.push(`Anti-cavalry (${antiCavOf(u)})`);
+    if (u.type === 'warrior') t.push(CARDS[weaponOf(u)].name + (hasPassive(u, 'halberd') ? ' · Reach 2' : ''));
     if (ty.mounted) t.push('Mounted');
     if (ty.fragile) t.push('2× from missiles');
     if (noMoveShoot(u)) t.push("can't move & shoot");
@@ -2051,8 +2190,9 @@
     const owned = new Set([u.cards.passive, ...u.cards.skills.filter(Boolean).map(k => k.id)]);
     const hpCap = T(u).hpCap || 40, manaCost = 1 + (u.manaBought || 0);
     const statBtns = mine ? ` <button data-stat="hp" ${pts >= 1 && u.maxHp < hpCap ? '' : 'disabled'}>+${HP_PER_POINT} HP · 1 pt</button>` +
-      ` <button data-stat="mana" ${pts >= manaCost && u.manaMax < MANA_CAP ? '' : 'disabled'}>+1 Max mana · ${manaCost} pt</button>` : '';
-    let html = `<div class="chd"><b style="color:rgb(${TEAM[u.team].map(v => v + 80)})">${teamName(u.team)} ${u.name}</b> · HP ${u.hp}/${u.maxHp} <span class="cap">(max ${hpCap})</span> · Mana ${u.mana}/${u.manaMax} <span class="cap">(max ${MANA_CAP})</span> · Points: <b>${pts}</b>${mine ? '' : ' · view only'}${statBtns}</div>`;
+      ` <button data-stat="mana" ${pts >= manaCost && u.manaMax < MANA_CAP ? '' : 'disabled'}>+1 Max mana · ${manaCost} pt</button>` +
+      (T(u).dmgCap ? ` <button data-stat="dmg" ${pts >= DMG_PRICE && u.dmg < T(u).dmgCap ? '' : 'disabled'}>+1 Damage · ${DMG_PRICE} pt</button>` : '') : '';
+    let html = `<div class="chd"><b style="color:rgb(${TEAM[u.team].map(v => v + 80)})">${teamName(u.team)} ${u.name}</b> · HP ${u.hp}/${u.maxHp} <span class="cap">(max ${hpCap})</span> ·${T(u).dmgCap ? ` Damage ${u.dmg} <span class="cap">(max ${T(u).dmgCap})</span> ·` : ''} Mana ${u.mana}/${u.manaMax} <span class="cap">(max ${MANA_CAP})</span> · Points: <b>${pts}</b>${mine ? '' : ' · view only'}${statBtns}</div>`;
     if (shopFor && shopFor.id === u.id) {
       const list = shopFor.slot === 'p' ? hc.passive : hc.skill.filter(id => !owned.has(id));
       html += `<div class="chd2">Choose a ${shopFor.slot === 'p' ? 'passive' : 'skill'} card</div><div class="crow">${list.map(id => cardHtml(id, 1, { buy: true, can: mine && pts >= CARD_PRICE })).join('')}</div><button data-act="closeshop">Cancel</button>`;
@@ -2077,6 +2217,7 @@
     if (b && b.dataset.stat) {                                   // hero stats: +2 HP per point, +1 max mana for a rising price
       if (!canManage(u)) return;
       if (b.dataset.stat === 'hp') { if (pts < 1 || u.maxHp >= (T(u).hpCap || 40)) return; const add = Math.min(HP_PER_POINT, (T(u).hpCap || 40) - u.maxHp); u.maxHp += add; u.hp += add; game.points = { ...game.points, [u.team]: pts - 1 }; toast(`${u.name}: +${add} HP`); }
+      else if (b.dataset.stat === 'dmg') { if (pts < DMG_PRICE || !T(u).dmgCap || u.dmg >= T(u).dmgCap) return; u.dmg += 1; u.dmgBought = (u.dmgBought || 0) + 1; game.points = { ...game.points, [u.team]: pts - DMG_PRICE }; toast(`${u.name}: +1 damage`); }
       else { const cost = 1 + (u.manaBought || 0); if (pts < cost || u.manaMax >= MANA_CAP) return; u.manaMax += 1; u.mana += 1; u.manaBought = (u.manaBought || 0) + 1; game.points = { ...game.points, [u.team]: pts - cost }; toast(`${u.name}: +1 max mana`); }
       commit({ type: 'cards' }); return;
     }
@@ -2361,6 +2502,20 @@
         if (dist > card.range(L) || dist === 0) { hint('Out of range', h); return; }
         go({ type: 'skill', id: u.id, skill: 'blink', col: h[0], row: h[1] }); armed = null; return;
       }
+      if (armed.skill === 'dash') {
+        if (dist === 0 || dist > card.range(L)) { hint('Out of range', h); return; }
+        if (blockedTile(h)) { hint('Blocked', h); return; }
+        if (tgt && tgt.team === u.team) { hint('A friend is standing there', h); return; }
+        if (tgt && lockedOut(here, tgt)) { hint('Taunted: must target the Paladin', h); return; }
+        if (tgt && !neighbors(...h).some(n => (!unitAt(n) || unitAt(n) === u) && !blockedTile(n))) { hint('No room next to it', h); return; }
+        go({ type: 'skill', id: u.id, skill: 'dash', col: h[0], row: h[1] }); armed = null; return;
+      }
+      if (armed.skill === 'pstrike') {
+        if (!tgt || tgt.team === u.team) { hint('Pick an enemy', h); return; }
+        if (warriorAim(u, here, h) === null) { hint('Out of reach', h); return; }
+        if (lockedOut(here, tgt)) { hint('Taunted: must target the Paladin', h); return; }
+        go({ type: 'skill', id: u.id, skill: 'pstrike', target: tgt.id }); armed = null; return;
+      }
       if (armed.skill === 'shadowstep') {
         if (!tgt || tgt === u) { hint('Pick a unit', h); return; }
         if (dist > card.range(L)) { hint('Out of range', h); return; }
@@ -2453,6 +2608,19 @@
       if (nms || u.moved) { hint('Out of range', h); return; }
       const path = approach(ty.range, tgt); if (!path) { hint(lock ? 'Taunted: must target the Paladin' : 'Out of reach', h); return; }
       go({ type: 'shoot', id: u.id, path, target: tgt.id }); return;
+    }
+    if (u.type === 'warrior' && tgt && tgt.team !== u.team) {   // warrior: reach 1 (halberd: 2 in a straight line)
+      if (u.attacked) { hint('Already attacked', here); return; }
+      let path = [], from = here, d = warriorAim(u, here, h);
+      if (d === null || lockedOut(here, tgt)) {
+        if (u.moved) { hint(lockedOut(here, tgt) ? 'Taunted: must target the Paladin' : 'Already moved', here); return; }
+        const b = reach(u); let best = null;
+        for (const [k, dd] of b.dist) { if (dd === 0) continue; const tile = k.split(',').map(Number); if (unitAt(tile)) continue;
+          if (lockedOut(tile, tgt)) continue; if (warriorAim(u, tile, h) !== null && (!best || dd < best.d)) best = { tile, d: dd }; }
+        if (!best) { hint(lock ? 'Taunted: must target the Paladin' : 'Out of reach', h); return; }
+        path = pathTo(b, best.tile); from = best.tile; d = warriorAim(u, from, h);
+      }
+      go({ type: 'attack', id: u.id, path, target: tgt.id, targets: [tgt.id], dir: d }); return;
     }
     if (!tgt) { moveTo(); return; }                          // melee units
     if (tgt.team === u.team) return;
