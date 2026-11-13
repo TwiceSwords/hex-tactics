@@ -63,7 +63,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div class="t">Hex Board · prototype v0.31</div>
+  <div class="t">Hex Board · prototype v0.32</div>
   <div>Hex: <span id="hov">–</span> &nbsp; Selected: <span id="sel">–</span></div>
   <div id="info" style="color:#e2d6a6"></div>
   <div class="k">Drag / WASD: move camera · Wheel: zoom · Left-click: select · Esc: deselect</div>
@@ -565,6 +565,31 @@
     return m;
   }
 
+  // Mage hero: long team robe, wide-brim pointed hat, white beard, staff with a glowing orb
+  function buildMage(team) {
+    const m = { v: [], f: [] }, ROBE = team.map(c => c * 0.62 + 14), DROBE = team.map(c => c * 0.38 + 8), HAT = team.map(c => c * 0.45 + 12),
+          BEARD = [228, 226, 218], WOOD = [92, 62, 36], ORB = [150, 230, 255];
+    part(m, boxG(4.4, 8.6, 3.6, 0.62, 0.62), ROBE, { p: [0, 0, 0] });                            // flared robe
+    part(m, boxG(4.6, 0.45, 3.8), C.GOLD, { p: [0, 0.15, 0] });                                   // gold hem
+    part(m, boxG(0.5, 8.2, 0.12), C.GOLD, { p: [0, 0.4, 1.62], bias: 2 });                         // front trim
+    part(m, boxG(3.0, 4.6, 2.2, 1.1, 1), ROBE, { p: [0, 8.4, 0] });                                // chest
+    part(m, boxG(3.2, 0.55, 2.4), [96, 60, 32], { p: [0, 8.6, 0] });                               // belt
+    part(m, boxG(0.7, 0.7, 0.3), C.GOLD, { p: [0, 8.55, 1.2], bias: 3 });
+    part(m, boxG(4.4, 7.6, 0.3, 0.7, 1), DROBE, { r: [0.08, 0, 0], p: [0, 4.6, -1.35] });        // back cape
+    part(m, boxG(0.85, 0.8, 0.85), C.SKIN, { p: [0, 13.0, 0] });
+    part(m, boxG(1.45, 1.9, 1.6), C.SKIN, { p: [0, 13.6, 0.05] });
+    part(m, boxG(1.6, 3.0, 0.9, 0.55, 0.8), BEARD, { o: [0, -3.0, 0], p: [0, 14.7, 0.8] });        // long white beard
+    part(m, boxG(1.55, 0.35, 0.3), BEARD, { p: [0, 14.55, 0.85] });                                 // moustache
+    part(m, cylG(2.5, 0.25, 10), HAT, { p: [0, 15.55, -0.15] });                                   // brim
+    part(m, cylG(1.3, 3.6, 8, 0.5), HAT, { p: [0, 15.75, -0.2] });                               // hat cone
+    part(m, cylG(0.5, 1.7, 6, 0.08), HAT, { r: [-0.5, 0, 0], p: [0, 19.2, -0.3] });             // bent tip
+    const sH = arm(m, [1.95, 12.6, 0.1], [-0.9, 0, -0.15], [-1.35, 0, 0.1], ROBE, DROBE);
+    arm(m, [-1.95, 12.6, 0.1], [-0.4, 0, 0.35], [-0.9, 0, 0.5], ROBE, DROBE);
+    part(m, boxG(0.42, 16.4, 0.42), WOOD, { p: add(sH, [0, -8.6, 0.3]) });                         // staff
+    part(m, boxG(1.1, 1.0, 1.1, 1.5, 1.5), C.GOLD, { p: add(sH, [0, 7.6, 0.3]) });                  // claw
+    part(m, cylG(0.85, 1.7, 8, 0.85), ORB, { p: add(sH, [0, 8.3, 0.3]) });                          // orb
+    return m;
+  }
   // Ranger hero: hooded long cloak, leather jerkin, braid, quiver and a big longbow
   function buildRanger(team) {
     const m = { v: [], f: [] }, OLIVE = [92, 104, 60], DOLIVE = [60, 68, 40], DLEATH = [58, 42, 28],
@@ -645,6 +670,7 @@
   const UNIT_TYPES = {
     swordsman:   { name: 'Swordsman',    maxHp: 14, dmg: 3, move: 2, h: 17.6, build: buildSwordsman },
     knight:      { name: 'Paladin',      maxHp: 12, dmg: 3, move: 2, h: 18.4, hero: true, staMax: 0, manaMax: 4, hpCap: 40, build: buildKnight },
+    mage:        { name: 'Mage',         maxHp: 12, dmg: 2, move: 2, h: 19.6, hero: true, staMax: 0, manaMax: 4, hpCap: 20, ranged: 'arc', range: 5, magic: true, build: buildMage },
     ranger:      { name: 'Ranger',       maxHp: 12, dmg: 3, move: 2, h: 17.8, hero: true, staMax: 0, manaMax: 4, hpCap: 20, ranged: 'arc', range: 5, noMoveShoot: true, build: buildRanger },
     spearman:    { name: 'Spearman',     maxHp: 12, dmg: 3, move: 2, h: 17.6, antiCav: 1, build: buildSpearman },
     halberdier:  { name: 'Halberdier',   maxHp: 12, dmg: 4, move: 2, h: 17.6, antiCav: 2, reach: 2, fragile: true, build: buildHalberdier },
@@ -687,7 +713,7 @@
   }
   function exportState(last) {
     return { seq: game.seq, turn: game.turn, round: game.round, dm: !!game.dm, battle: !!game.battle, types: game.types, last: last || null,
-      units: units.filter(u => u.dying === null && u.hp > 0).map(u => ({ id: u.id, type: u.type, team: u.team, col: u.col, row: u.row, hp: u.hp, maxHp: u.maxHp, sta: u.sta, staMax: u.staMax, mana: u.mana, manaMax: u.manaMax,
+      ...(game.water && game.water.length ? { water: game.water } : {}), units: units.filter(u => u.dying === null && u.hp > 0).map(u => ({ id: u.id, type: u.type, team: u.team, col: u.col, row: u.row, hp: u.hp, maxHp: u.maxHp, sta: u.sta, staMax: u.staMax, mana: u.mana, manaMax: u.manaMax,
         face: Math.round(u.want * 100) / 100, moved: u.moved, attacked: u.attacked,
         ...(u.stun ? { stun: u.stun } : {}), ...(u.stunActive ? { stunActive: true } : {}), ...(u.mark ? { mark: u.mark } : {}),
         ...(u.cards ? { cards: u.cards } : {}), ...(u.tauntR ? { tauntR: u.tauntR } : {}), ...(u.guard ? { guard: u.guard } : {}),
@@ -703,7 +729,7 @@
       Object.assign(o, { col: s.col, row: s.row, hp: s.hp, maxHp: s.maxHp || o.maxHp, sta: s.sta ?? o.sta, staMax: s.staMax ?? o.staMax, mana: s.mana ?? o.mana, manaMax: s.manaMax ?? o.manaMax, moved: s.moved, attacked: s.attacked, stun: s.stun || 0, stunActive: !!s.stunActive, mark: s.mark || null, cards: s.cards || (T(o).hero ? emptyCards() : null), tauntR: s.tauntR || 0, guard: s.guard || null, dots: s.dots || [], skillUsed: !!s.skillUsed, raining: !!s.raining, watch: s.watch || null, rain: s.rain || null, slows: s.slows || null, slowNow: s.slowNow || null, manaBought: s.manaBought || 0, wait: 0, watchHit: null, noTurn: false, path: null, atk: null, dying: null, dragPos: null, push: false, fast: false });
       return o; });
     game = { seq: st.seq, turn: st.turn, round: st.round, dm: !!st.dm, battle: !!st.battle, types: (st.types && typeof st.types === 'object') ? st.types : {},
-      points: { blue: 0, red: 0, ...(st.points && typeof st.points === 'object' ? st.points : {}) } };
+      points: { blue: 0, red: 0, ...(st.points && typeof st.points === 'object' ? st.points : {}) }, water: Array.isArray(st.water) ? st.water : [] };
     updateSeat();
     if (selUnit && !units.includes(selUnit)) { selUnit = null; sel = null; }
     if (selUnit) sel = [selUnit.col, selUnit.row];
@@ -833,7 +859,7 @@
     return tiles.some(h => foes.some(o => hexDist(h, [o.col, o.row]) <= T(o).antiCav));
   }
   // projectiles: arrows arc high, bolts fly straight, boulders arc very high
-  const PSPEED = { arrow: 950, shot: 1500, rain: 900, bolt: 1500, pierce: 1300, boulder: 650 }, PARC = { arrow: 0.28, shot: 0.03, rain: 0, bolt: 0, pierce: 0, boulder: 0.55 };
+  const PSPEED = { orb: 800, firebolt: 1100, fireball: 650, arrow: 950, shot: 1500, rain: 900, bolt: 1500, pierce: 1300, boulder: 650 }, PARC = { orb: 0.12, firebolt: 0.02, fireball: 0.35, arrow: 0.28, shot: 0.03, rain: 0, bolt: 0, pierce: 0, boulder: 0.55 };
   function fire(kind, from, to, onEnd, hits = []) {
     const d = Math.hypot(to.x - from.x, to.y - from.y) || 1;
     projectiles.push({ kind, x0: from.x, y0: from.y, x1: to.x, y1: to.y, t: 0, dur: d / PSPEED[kind], arc: d * PARC[kind], onEnd, hits });
@@ -858,7 +884,13 @@
       const dx = p.x1 - p.x0, dy = (p.y1 - p.y0) - p.arc * 4 * (1 - 2 * p.t), a = Math.atan2(dy, dx);
       if (p.arc) { ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(x, gy + 8, p.kind === 'boulder' ? 9 : 5, p.kind === 'boulder' ? 4 : 2, 0, 0, 7); ctx.fill(); }
       ctx.save(); ctx.translate(x, y); ctx.rotate(a);
-      if (p.kind === 'boulder') { ctx.fillStyle = '#8a857a'; ctx.strokeStyle = '#3c3a34'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 8, 0, 7); ctx.fill(); ctx.stroke(); }
+      if (p.kind === 'orb' || p.kind === 'firebolt' || p.kind === 'fireball') {
+        const col = p.color || (p.kind === 'orb' ? '170,150,255' : '255,140,40'), rr = p.kind === 'fireball' ? 11 : p.kind === 'firebolt' ? 7 : 6;
+        ctx.rotate(-a); const back = [-(p.x1 - p.x0), -dy]; const bl = Math.hypot(...back) || 1;
+        for (let k = 4; k >= 1; k--) { ctx.fillStyle = `rgba(${col},${0.16 * (5 - k) / 4})`; ctx.beginPath(); ctx.arc(back[0] / bl * k * rr * 0.9, back[1] / bl * k * rr * 0.9, rr * (1 - k * 0.12), 0, 7); ctx.fill(); }
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rr * 1.8); g.addColorStop(0, 'rgba(255,255,230,1)'); g.addColorStop(0.35, `rgba(${col},0.95)`); g.addColorStop(1, `rgba(${col},0)`);
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rr * 1.8, 0, 7); ctx.fill();
+      } else if (p.kind === 'boulder') { ctx.fillStyle = '#8a857a'; ctx.strokeStyle = '#3c3a34'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 8, 0, 7); ctx.fill(); ctx.stroke(); }
       else {
         const L = p.kind === 'pierce' ? 34 : p.kind === 'bolt' ? 18 : 16, W = p.kind === 'pierce' ? 4 : p.kind === 'bolt' ? 2.6 : 1.6;
         ctx.strokeStyle = ['arrow', 'shot', 'rain'].includes(p.kind) ? '#d9c79a' : '#6e4e30'; ctx.lineWidth = W; ctx.lineCap = 'round';
@@ -866,6 +898,12 @@
         ctx.fillStyle = '#c9ced6'; ctx.beginPath(); ctx.moveTo(3 + W, 0); ctx.lineTo(-3, -2 - W / 2); ctx.lineTo(-3, 2 + W / 2); ctx.fill();
         if (['arrow', 'shot', 'rain'].includes(p.kind)) { ctx.strokeStyle = '#e8e2d0'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-L, 0); ctx.lineTo(-L - 4, -3); ctx.moveTo(-L, 0); ctx.lineTo(-L - 4, 3); ctx.stroke(); }
       }
+      ctx.restore();
+    }
+    for (const e of effects) if (e.bolt && e.t < 0.45) {                       // lightning: jagged bolt from the sky
+      ctx.save(); ctx.globalAlpha = Math.max(0, 1 - e.t / 0.45); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      const pts = [[e.x + 30, e.y - 520]]; for (let i = 1; i < 9; i++) pts.push([e.x + 30 * (1 - i / 9) + (((i * 7919 + Math.floor(e.x)) % 23) - 11) * 1.6, e.y - 520 + i * 58]); pts.push([e.x, e.y - 4]);
+      for (const [w, c] of [[11, 'rgba(120,170,255,0.35)'], [5, 'rgba(190,220,255,0.9)'], [2, '#ffffff']]) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke(); }
       ctx.restore();
     }
     for (const e of effects) {                        // boulder impact dust
@@ -916,8 +954,47 @@
                 : `Shoot an enemy: its movement is halved for ${CARDS.cripple.slows(l).length} turn${CARDS.cripple.slows(l).length > 1 ? 's' : ''}.` },
   });
   HERO_CARDS.ranger = { passive: ['skirmisher', 'quickdraw', 'keeneye', 'evasion'], skill: ['drive', 'rain', 'tumble', 'snipe', 'overwatch', 'cripple'] };
+  // Mage cards
+  Object.assign(CARDS, {
+    mender: { kind: 'passive', name: "Healer's Touch", text: () => 'Basic attack no longer hurts: it heals an ally for 3 (range 5). Healing burns the undead for double.' },
+    siphon: { kind: 'passive', name: 'Mana Siphon', text: () => 'Basic attack deals 1 instead of 2, but every enemy hit gives back 1 mana.' },
+    firebolt: { kind: 'skill', name: 'Firebolt', cost: () => 2, target: 'line', range: () => 5,
+      hit: l => lv([1, 1, 1, 2, 2], l), burn: l => lv([[1, 1], [1, 2], [2, 2], [2, 2], [2, 3]], l),
+      text: l => { const b = CARDS.firebolt.burn(l); return `Straight bolt at the first unit in line (friend or foe): ${CARDS.firebolt.hit(l)} damage, then burns ${b[0]} per turn for ${b[1]} turn${b[1] > 1 ? 's' : ''}. Already burning: +1 damage and +1 burn turn.`; } },
+    fireball: { kind: 'skill', name: 'Fireball', cost: () => 4, target: 'tile', range: () => 5,
+      dmg: l => lv([[4, 2], [4, 2], [4, 2], [6, 3], [8, 4]], l), burn: l => lv([null, [1, 1], [1, 2], [1, 2], [1, 2]], l),
+      text: l => { const d = CARDS.fireball.dmg(l), b = CARDS.fireball.burn(l); return `Hurl a fireball at any tile within 5: ${d[0]} damage there, ${d[1]} to every tile around it (friend or foe)${b ? `; everyone hit burns ${b[0]} per turn for ${b[1]} turn${b[1] > 1 ? 's' : ''}` : ''}.`; } },
+    blink: { kind: 'skill', name: 'Blink', cost: () => 2, target: 'empty', range: l => lv([1, 2, 3, 3, 4], l),
+      text: l => `Teleport to an empty tile within ${CARDS.blink.range(l)}.${l >= 4 ? ' Free: doesn\'t use his action, only mana.' : ''}` },
+    mheal: { kind: 'skill', name: 'Healing Light', cost: () => 3, heal: l => lv([4, 6, 8, 10, 12], l), target: 'unit', range: () => 5,
+      text: l => `Heal any unit within 5 (friend or foe, himself too) for ${CARDS.mheal.heal(l)}. Undead take double that as damage.` },
+    lightning: { kind: 'skill', name: 'Lightning Strike', cost: () => 3, dmg: l => l, target: 'tile', range: () => 5,
+      text: l => `Lightning falls on any tile within 5: ${l} damage and stun. On water it hits every unit in that connected water too.` },
+  });
+  HERO_CARDS.mage = { passive: ['mender', 'siphon'], skill: ['firebolt', 'fireball', 'blink', 'mheal', 'lightning'] };
+  const waterAt = h => !!(game.water && game.water.includes(key(h[0], h[1])));     // no water tiles on the map yet
+  function waterBody(h) {                                                          // every water tile connected to h
+    const out = [h], seen = new Set([key(...h)]);
+    for (let i = 0; i < out.length; i++) for (const n of neighbors(...out[i])) { const k = key(...n); if (!seen.has(k) && waterAt(n)) { seen.add(k); out.push(n); } }
+    return out;
+  }
+  // healing: the undead take double the healing as damage instead
+  function healUnit(t, n, src) {
+    if (!t || t.dying !== null || t.hp <= 0) return;
+    if (T(t).undead) { dealDamage(t, n * 2, { physical: false, src }); return; }
+    const before = t.hp; t.hp = Math.min(t.maxHp, t.hp + n); floatOn(t, `+${t.hp - before}`, '#7dffa0', 0, 22);
+  }
+  const burnOf = t => { for (const o of units) for (const d of (o.dots || [])) if (d.kind === 'burn' && ((o === t && !d.guardOf) || d.guardOf === t.id)) return d; return null; };
+  function burnUnit(t, dmg, turns) {                                               // a new burn replaces the old one (keeps the longer/hotter)
+    if (!t || t.dying !== null || t.hp <= 0) return;
+    const old = burnOf(t);
+    for (const o of units) if (o.dots) o.dots = o.dots.filter(d => !(d.kind === 'burn' && ((o === t && !d.guardOf) || d.guardOf === t.id)));
+    applyDot(t, Math.max(dmg, old ? old.dmg : 0), Math.max(turns, old ? old.turns : 0), 'burn');
+    floatOn(t, '🔥 BURNING', '#ffb050', 18, 15);
+  }
+  const canCastCard = (u, c) => c && c.id === 'blink' && c.lvl >= 4 ? !u.stunActive && !u.watch : canSkillNow(u);
   const HP_PER_POINT = 2, MANA_CAP = 10;
-  const baseDmg = u => u.dmg + (hasPassive(u, 'keeneye') ? 2 : 0);
+  const baseDmg = u => hasPassive(u, 'siphon') ? 1 : u.dmg + (hasPassive(u, 'keeneye') ? 2 : 0);
   const noMoveShoot = u => !!T(u).noMoveShoot && !hasPassive(u, 'skirmisher');
   const moveOf = u => u.slowNow === 'root' ? 0 : u.slowNow === 'half' ? Math.max(1, Math.floor(u.move / 2)) : u.move;
   const canSkillNow = u => !!T(u).hero && (!u.skillUsed || u.raining) && !(u.attacked && !hasPassive(u, 'quickdraw') && !u.raining) && !u.watch && !u.stunActive;
@@ -928,8 +1005,10 @@
     if (u.stunActive || u.watch) return false;
     if (canMoveNow(u)) return true;
     const ty = T(u), r = ty.ranged === 'arc' ? ty.range : (ty.reach || 1);
-    const foeIn = units.some(o => o.team !== u.team && o.dying === null && o.hp > 0 && hexDist([u.col, u.row], [o.col, o.row]) <= r);
+    const healer = hasPassive(u, 'mender');
+    const foeIn = units.some(o => o.dying === null && o.hp > 0 && (healer ? o !== u && (o.team === u.team ? o.hp < o.maxHp : !!T(o).undead) : o.team !== u.team) && hexDist([u.col, u.row], [o.col, o.row]) <= r);
     if (canShootNow(u) && (!strict || foeIn)) return true;
+    if (!strict && u.cards && u.cards.skills.some(c => c && canCastCard(u, c) && (u.mana || 0) >= CARDS[c.id].cost(c.lvl))) return true;
     return canSkillNow(u) && (!strict || (u.cards && u.cards.skills.some(c => c && (u.mana || 0) >= CARDS[c.id].cost(c.lvl))));
   }
   // a hit can be dodged (Evasion) or caught on a shield (Shield Wall); area attacks can't be avoided either way
@@ -1025,7 +1104,10 @@
     if (a.type === 'skill') {                          // paladin skill cards
       const card = CARDS[a.skill], c = u.cards && u.cards.skills.find(k => k && k.id === a.skill), L = c ? c.lvl : 1;
       const tgt = a.target && units.find(x => x.id === a.target && x.dying === null);
-      u.mana = Math.max(0, (u.mana || 0) - card.cost(L)); if (!hasPassive(u, 'quickdraw')) u.attacked = true; u.skillUsed = true;   // the hero's action this turn (Quick Draw keeps the shot); may still move
+      const was = { attacked: u.attacked, skillUsed: u.skillUsed };
+      u.mana = Math.max(0, (u.mana || 0) - card.cost(L)); if (!hasPassive(u, 'quickdraw')) u.attacked = true; u.skillUsed = true;
+      if (a.skill === 'blink' && L >= 4) Object.assign(u, was);     // Blink Lv 4+: costs only mana
+      if (mageSkill(u, a, card, L, tgt)) return;   // the hero's action this turn (Quick Draw keeps the shot); may still move
       if (rangerSkill(u, a, card, L, tgt)) return;
       if (a.skill === 'smite' || a.skill === 'bash') {
         if (!tgt) return; faceToward(u, tgt);
@@ -1040,7 +1122,7 @@
         const r = card.range(L), n = card.heal(L), p = upos(u);
         effects.push({ x: p.x, y: p.y, t: 0, color: '120,255,150', r: r * S * 1.6 });
         for (const o of units) if (o !== u && o.team === u.team && o.dying === null && o.hp > 0 && hexDist([u.col, u.row], [o.col, o.row]) <= r) {
-          const before = o.hp; o.hp = Math.min(o.maxHp, o.hp + n); floatOn(o, `+${o.hp - before}`, '#7dffa0', 0, 22);
+          healUnit(o, n, u);
         }
       } else if (a.skill === 'chains') {
         if (!tgt) return; faceToward(u, tgt); u.chainTo = tgt.id;
@@ -1076,7 +1158,15 @@
         u.attacked = u.moved = true;
       } else if (a.type === 'shoot') {                 // archers & horse archers: arcing arrow
         const t = units.find(x => x.id === a.target);
-        if (t && t.dying === null) { faceToward(u, t); fire('arrow', shotFrom(u), shotAt(t), () => dealDamage(t, rangedDmg(baseDmg(u), t), { src: u, projectile: true })); }
+        if (t && t.dying === null && ty.magic) {
+          if (t !== u) faceToward(u, t); const healer = hasPassive(u, 'mender');
+          fire('orb', shotFrom(u), shotAt(t), () => {
+            if (healer) { healUnit(t, 3, u); return; }
+            const r = dealDamage(t, baseDmg(u), { physical: false, src: u });
+            if (hasPassive(u, 'siphon') && t.team !== u.team && !r.blocked && u.mana < u.manaMax) { u.mana += 1; floatOn(u, '+1 mana', '#8fb8ff', 0, 15); }
+          });
+          projectiles[projectiles.length - 1].color = healer ? '140,255,170' : '170,150,255';
+        } else if (t && t.dying === null) { faceToward(u, t); fire('arrow', shotFrom(u), shotAt(t), () => dealDamage(t, rangedDmg(baseDmg(u), t), { src: u, projectile: true })); }
         u.attacked = true; if (!hasPassive(u, 'skirmisher')) u.moved = true;   // Skirmisher: may still walk after shooting
       } else if (a.type === 'bolt') {                  // crossbow: straight bolt, first unit in line, push back or stun
         faceDir(u, a.dir); u.attacked = u.moved = true;
@@ -1110,6 +1200,50 @@
         const m = tileAt([a.col, a.row]); addFloat(m.x, m.y - 30, 'Target marked', '#ffb08a', 14);
       }
     });
+  }
+  // Mage skills (return true when handled)
+  function mageSkill(u, a, card, L, tgt) {
+    const sk = a.skill, spell = { physical: false, src: u };
+    if (sk === 'firebolt') {                            // straight bolt at the first unit in line, then it burns
+      faceDir(u, a.dir); const f = firstInLine([u.col, u.row], a.dir, card.range(L));
+      const end = f ? shotAt(f.unit) : tileAt(lineTiles([u.col, u.row], a.dir, card.range(L)).slice(-1)[0] || [u.col, u.row]);
+      fire('firebolt', shotFrom(u), end, () => {
+        if (!f || f.unit.dying !== null) return; const t = f.unit, hot = !!burnOf(t), b = card.burn(L);
+        dealDamage(t, card.hit(L) + (hot ? 1 : 0), spell);
+        if (t.hp > 0) burnUnit(t, b[0], b[1] + (hot ? 1 : 0));
+        const p = upos(t); effects.push({ x: p.x, y: p.y, t: 0, color: '255,140,40', r: 50 });
+      });
+      return true;
+    }
+    if (sk === 'fireball') {                            // any tile: big hit in the middle, smaller all around, maybe burns
+      faceTile(u, [a.col, a.row]); const to = tileAt([a.col, a.row]), d = card.dmg(L), b = card.burn(L);
+      fire('fireball', shotFrom(u), to, () => {
+        effects.push({ x: to.x, y: to.y, t: 0, color: '255,120,30', r: S * 2.4 });
+        const hits = [[[a.col, a.row], d[0]], ...neighbors(a.col, a.row).map(h => [h, d[1]])];
+        for (const [h, n] of hits) { const t = liveUnitAt(h); if (!t) continue; dealDamage(t, n, { ...spell, aoe: true }); if (b && t.hp > 0) burnUnit(t, b[0], b[1]); }
+      });
+      return true;
+    }
+    if (sk === 'blink') {                               // teleport
+      const from = upos(u); effects.push({ x: from.x, y: from.y, t: 0, color: '160,200,255', r: 40 });
+      faceTile(u, [a.col, a.row]); u.col = a.col; u.row = a.row; if (u === selUnit) sel = [u.col, u.row];
+      const p = upos(u); effects.push({ x: p.x, y: p.y, t: 0, color: '160,200,255', r: 40 });
+      u.watchHit = new Set(); overwatchCheck(u, [u.col, u.row]); u.watchHit = null;
+      return true;
+    }
+    if (sk === 'mheal') {
+      if (!tgt) return true; if (tgt !== u) faceToward(u, tgt);
+      const p = upos(tgt); effects.push({ x: p.x, y: p.y, t: 0, color: '120,255,150', r: 45 });
+      healUnit(tgt, card.heal(L), u); return true;
+    }
+    if (sk === 'lightning') {                           // strike from above; on water it spreads through the connected water
+      faceTile(u, [a.col, a.row]);
+      const tiles = waterAt([a.col, a.row]) ? waterBody([a.col, a.row]) : [[a.col, a.row]];
+      for (const h of tiles) { const m = tileAt(h); effects.push({ x: m.x, y: m.y, t: 0, color: '190,220,255', r: 30, bolt: true }); }
+      for (const h of tiles) { const t = liveUnitAt(h); if (!t) continue; dealDamage(t, card.dmg(L), { ...spell, aoe: true }); if (t.hp > 0) stunUnit(t); }
+      return true;
+    }
+    return false;
   }
   // Ranger skills (return true when handled)
   function rangerSkill(u, a, card, L, tgt) {
@@ -1282,6 +1416,15 @@
     const rows = [['mana', 'manaMax', '#4a7fe0', 'rgba(74,127,224,0.28)']].filter(b => u[b[1]] > 0 && hasRes(u));
     const rh = 5, total = h + (rows.length ? 2 + rows.length * rh : 0);
     ctx.fillStyle = 'rgba(8,10,6,0.85)'; ctx.fillRect(x - 1.5, y - 1.5, w + 3, total + 3);
+    const bn = u.dying === null && burnOf(u);
+    if (bn) {                                                   // burning token: damage per turn × turns left
+      const tx = x + w + 6, ty2 = y + 3; ctx.save();
+      ctx.fillStyle = 'rgba(30,10,4,0.85)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(tx - 2, ty2 - 8, 34, 16, 4) : ctx.rect(tx - 2, ty2 - 8, 34, 16); ctx.fill();
+      ctx.fillStyle = '#ff8a2a'; ctx.beginPath(); ctx.moveTo(tx + 5, ty2 - 7); ctx.quadraticCurveTo(tx + 11, ty2 - 1, tx + 9, ty2 + 5); ctx.quadraticCurveTo(tx + 5, ty2 + 8, tx + 1, ty2 + 5); ctx.quadraticCurveTo(tx - 1, ty2, tx + 5, ty2 - 7); ctx.fill();
+      ctx.fillStyle = '#ffe07a'; ctx.beginPath(); ctx.arc(tx + 5, ty2 + 3, 2.2, 0, 7); ctx.fill();
+      ctx.font = '800 10px system-ui,sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ffd08a';
+      ctx.fillText(`${bn.dmg}×${bn.turns}`, tx + 12, ty2 + 0.5); ctx.restore();
+    }
     // health: always green, notched
     const f = Math.max(0, u.hpShown / u.maxHp);
     ctx.fillStyle = '#16241a'; ctx.fillRect(x, y, w, h);
@@ -1427,8 +1570,10 @@
       return;
     }
     if (ty.ranged === 'mark' && !u.moved && hexDist(here, hover) <= ty.range && !(hexDist(here, hover) === 1 && !tgt)) { drawCrosshair(hover, 'rgba(255,150,110,0.7)', 1, t); return; }
+    if (ty.magic && hasPassive(u, 'mender') && tgt && tgt.team === u.team && tgt !== u && hexDist(here, hover) <= ty.range && canShootNow(u)) { outlineHex(hover, 'rgba(120,255,160,0.95)', 4); label(tgt, `+${Math.min(3, tgt.maxHp - tgt.hp)}`, '#9dffb4'); return; }
     if (!tgt || tgt.team === u.team) return;
-    if (ty.ranged === 'arc' && hexDist(here, hover) <= ty.range && canShootNow(u)) { outlineHex(hover, 'rgba(255,70,50,0.95)', 4); label(tgt, `-${rangedDmg(baseDmg(u), tgt)}`); return; }
+    if (ty.magic && hasPassive(u, 'mender') && !T(tgt).undead) return;
+    if (ty.ranged === 'arc' && hexDist(here, hover) <= ty.range && canShootNow(u)) { outlineHex(hover, 'rgba(255,70,50,0.95)', 4); label(tgt, `-${ty.magic ? baseDmg(u) : rangedDmg(baseDmg(u), tgt)}`); return; }
     if (ty.charge && !u.moved && moveOf(u) > 0 && ld && ld.n >= 4 && ld.n <= ty.charge) {
       const lane = []; let first = null;
       for (const h of lineTiles(here, ld.d, ty.charge)) { const o = liveUnitAt(h); if (o) { first = o; break; } lane.push(h); }
@@ -1475,7 +1620,18 @@
     if (armed.skill === 'overwatch') { if (hover && hexDist(here, hover) > 0) drawZone(coneAt(here, dirToward(here, hover), T(u).range), 'rgba(255,190,70,0.16)', 'rgba(255,210,100,0.95)', false); return; }
     if (armed.skill === 'rain') { const zone = areaAround(here, card.range(L)); zone.delete(key(...here)); drawZone(zone, 'rgba(150,255,190,0.07)', 'rgba(150,255,190,0.85)', false); if (hover && zone.has(key(...hover))) outlineHex(hover, 'rgba(150,255,190,0.95)', 4); return; }
     if (armed.skill === 'tumble') { for (const h of neighbors(...here)) { const o = liveUnitAt(h); if (o) outlineHex(h, 'rgba(150,255,190,0.95)', 4); } return; }
-    if (armed.skill === 'drive') {
+    if (armed.skill === 'fireball' || armed.skill === 'lightning') {
+      const zone = areaAround(here, card.range(L)); drawZone(zone, armed.skill === 'fireball' ? 'rgba(255,140,40,0.07)' : 'rgba(170,200,255,0.07)', armed.skill === 'fireball' ? 'rgba(255,150,60,0.85)' : 'rgba(180,210,255,0.85)', false);
+      if (hover && zone.has(key(...hover))) {
+        if (armed.skill === 'fireball') { const d = card.dmg(L); tintHex(hover, 'rgba(255,90,30,0.35)'); for (const n of neighbors(...hover)) tintHex(n, 'rgba(255,140,40,0.22)');
+          for (const [hh, n] of [[hover, d[0]], ...neighbors(...hover).map(x => [x, d[1]])]) { const o = liveUnitAt(hh); if (o) label(o, `-${n}`, o.team === u.team ? '#ffd27a' : '#ffb4a0'); } }
+        else { const tiles = waterAt(hover) ? waterBody(hover) : [hover]; for (const hh of tiles) { tintHex(hh, 'rgba(170,200,255,0.3)'); const o = liveUnitAt(hh); if (o) label(o, `-${card.dmg(L)} · STUN`, '#cfe0ff'); } }
+      }
+      return;
+    }
+    if (armed.skill === 'blink') { for (const k of areaAround(here, card.range(L))) { const hh = k.split(',').map(Number); if (!unitAt(hh) && !blockedTile(hh)) { tintHex(hh, 'rgba(160,200,255,0.18)'); } } if (hover && !unitAt(hover) && hexDist(here, hover) <= card.range(L)) outlineHex(hover, 'rgba(170,210,255,0.95)', 4); return; }
+    if (armed.skill === 'mheal') { drawZone(areaAround(here, card.range(L)), 'rgba(110,255,150,0.08)', 'rgba(130,255,160,0.9)', false); const o = hover && liveUnitAt(hover); if (o && hexDist(here, hover) <= card.range(L)) { outlineHex(hover, 'rgba(130,255,160,0.95)', 4); label(o, T(o).undead ? `-${card.heal(L) * 2}` : `+${Math.min(card.heal(L), o.maxHp - o.hp)}`, '#9dffb4'); } return; }
+    if (armed.skill === 'drive' || armed.skill === 'firebolt') {
       for (let d = 0; d < 6; d++) { const f = firstInLine(here, d, card.range(L)); for (const h of lineTiles(here, d, f ? hexDist(here, f.tile) : card.range(L))) { if (blockedTile(h)) break; tintHex(h, 'rgba(120,210,255,0.12)'); } if (f) outlineHex(f.tile, 'rgba(255,70,50,0.95)', 4); }
       return;
     }
@@ -1533,7 +1689,7 @@
       ctx.fillStyle = 'rgba(200,50,40,0.18)'; ctx.fill();
       ctx.strokeStyle = 'rgba(230,80,60,0.9)'; ctx.lineWidth = 2 / Math.max(z, 0.6); ctx.stroke();
     }
-    drawMarks(t); drawSkillFx(t); if (!armed) drawRanges(t); else previewLabels = [];
+    previewLabels = []; drawMarks(t); drawSkillFx(t); if (!armed) drawRanges(t);
     if (dmActive() && hover && (placing || dragUnit)) {
       const free = !unitAt(hover) || unitAt(hover) === dragUnit;
       ctx.beginPath(); hexPath(hover[0], hover[1], ctx);
@@ -1814,7 +1970,7 @@
     const c = u.cards.skills[slot], cd = CARDS[c.id];
     if (armed && armed.id === u.id && armed.skill === c.id) { armed = null; refreshUI(); return; }
     if (!canManage(u) || !myTurn() || u.team !== game.turn) { toast('Not your turn'); return; }
-    if (!canCommand(u) || !canSkillNow(u) || (u.raining && c.id !== 'rain')) { toast(isStunned(u) ? 'Stunned' : u.watch ? 'On overwatch' : u.raining ? 'Only more Arrow Rain marks this turn' : 'Already used the skill/action this turn'); return; }
+    if (!canCommand(u) || !canCastCard(u, c) || (u.raining && c.id !== 'rain')) { toast(isStunned(u) ? 'Stunned' : u.watch ? 'On overwatch' : u.raining ? 'Only more Arrow Rain marks this turn' : 'Already used the skill/action this turn'); return; }
     if ((u.mana || 0) < cd.cost(c.lvl)) { toast(`Needs ${cd.cost(c.lvl)} mana`); return; }
     armed = { id: u.id, skill: c.id, lvl: c.lvl, stage: 'pick' };
     toast(`${cd.name}: ${castHint(cd, armed)}`);
@@ -1824,7 +1980,7 @@
   function castHint(cd, ar) {
     if (ar.stage === 'place') return 'right-click an empty tile next to him';
     return { self: 'right-click anywhere', friend: 'right-click a friendly unit', enemy: 'right-click an enemy', line: 'right-click along a straight line',
-      tile: 'right-click tiles to mark them (1 mana each)', any: 'right-click a unit next to her', cone: 'aim with the mouse, right-click to set the cone' }[cd.target] || 'right-click a target';
+      tile: cd === CARDS.rain ? 'right-click tiles to mark them (1 mana each)' : 'right-click a tile', empty: 'right-click an empty tile', unit: 'right-click any unit (friend or foe)', any: 'right-click a unit next to her', cone: 'aim with the mouse, right-click to set the cone' }[cd.target] || 'right-click a target';
   }
   function refreshUI() {
     if (armed && (!selUnit || armed.id !== selUnit.id)) armed = null;
@@ -2065,6 +2221,28 @@
         if (f.unit.team !== u.team && lockedOut(here, f.unit)) { hint('Taunted: must target the Paladin', h); return; }
         go({ type: 'skill', id: u.id, skill: 'drive', dir: ld.d }); armed = null; return;
       }
+      if (armed.skill === 'firebolt') {
+        const ld = lineDir(here, h); if (!ld) { hint('Not in a straight line', h); return; }
+        if (ld.n > card.range(L)) { hint('Out of range', h); return; }
+        const f = firstInLine(here, ld.d, card.range(L));
+        if (f && f.unit.team !== u.team && lockedOut(here, f.unit)) { hint('Taunted: must target the Paladin', h); return; }
+        go({ type: 'skill', id: u.id, skill: 'firebolt', dir: ld.d }); armed = null; return;
+      }
+      if (armed.skill === 'fireball' || armed.skill === 'lightning') {
+        if (dist > card.range(L)) { hint('Out of range', h); return; }
+        if (lock && !(h[0] === lock.col && h[1] === lock.row)) { hint('Taunted: must target the Paladin', h); return; }
+        go({ type: 'skill', id: u.id, skill: armed.skill, col: h[0], row: h[1] }); armed = null; return;
+      }
+      if (armed.skill === 'blink') {
+        if (unitAt(h) || blockedTile(h)) { hint('Pick an empty tile', h); return; }
+        if (dist > card.range(L) || dist === 0) { hint('Out of range', h); return; }
+        go({ type: 'skill', id: u.id, skill: 'blink', col: h[0], row: h[1] }); armed = null; return;
+      }
+      if (armed.skill === 'mheal') {
+        if (!tgt) { hint('Pick a unit', h); return; }
+        if (dist > card.range(L)) { hint('Out of range', h); return; }
+        go({ type: 'skill', id: u.id, skill: 'mheal', target: tgt.id }); armed = null; return;
+      }
       if (armed.skill === 'rain') {                           // stays armed: keep right-clicking to add marks (1 mana each)
         if (dist > card.range(L) || dist === 0) { hint('Out of range', h); return; }
         go({ type: 'skill', id: u.id, skill: 'rain', col: h[0], row: h[1] }); return;
@@ -2126,8 +2304,18 @@
     }
     if (ty.ranged === 'arc') {                               // archers & horse archers
       if (!tgt) { moveTo(); return; }
-      if (tgt.team === u.team) return;
+      const healer = hasPassive(u, 'mender');
+      if (healer ? (tgt === u || (tgt.team !== u.team && !T(tgt).undead)) : tgt.team === u.team) { if (healer && tgt.team !== u.team) hint("Healer's Touch: target an ally", h); return; }
       const nms = noMoveShoot(u);
+      if (healer && tgt.team === u.team) {
+        if (u.attacked) { hint('Already used his action', here); return; }
+        if (dist <= ty.range) { go({ type: 'shoot', id: u.id, target: tgt.id }); return; }
+        if (u.moved) { hint('Out of range', h); return; }
+        const b = reach(u); let best = null;
+        for (const [k, d] of b.dist) { if (d === 0) continue; const tile = k.split(',').map(Number); if (unitAt(tile)) continue; if (hexDist(tile, h) <= ty.range && (!best || d < best.d)) best = { tile, d }; }
+        if (!best) { hint('Out of reach', h); return; }
+        go({ type: 'shoot', id: u.id, path: pathTo(b, best.tile), target: tgt.id }); return;
+      }
       if (u.attacked) { hint(u.skillUsed && !hasPassive(u, 'quickdraw') ? 'Used her skill instead' : 'Already shot', here); return; }
       if (dist <= ty.range && !lockedOut(here, tgt)) { if (nms && u.moved) { hint('Moved: can\'t shoot this turn', here); return; } go({ type: 'shoot', id: u.id, target: tgt.id }); return; }
       if (dist <= ty.range && (nms || u.moved)) { hint('Taunted: must target the Paladin', h); return; }
