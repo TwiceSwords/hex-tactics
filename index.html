@@ -52,7 +52,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div class="t">Hex Board · prototype v0.23</div>
+  <div class="t">Hex Board · prototype v0.24</div>
   <div>Hex: <span id="hov">–</span> &nbsp; Selected: <span id="sel">–</span></div>
   <div id="info" style="color:#e2d6a6"></div>
   <div class="k">Drag: pan · Wheel: zoom · Left-click: select · Esc: deselect</div>
@@ -605,8 +605,6 @@
         ctx.fillStyle = k < v ? on : offc; ctx.fill();
       }
     });
-    const tc = TEAM[u.team];
-    ctx.fillStyle = `rgb(${tc[0] + 60},${tc[1] + 60},${tc[2] + 60})`; ctx.fillRect(x - 1.5, y - 1.5, 3, total + 3);   // team tick
     // turn line sits just above the health bar
     if (hasTurn) {
       ctx.fillStyle = 'rgba(8,10,6,0.8)'; ctx.fillRect(x - 1.5, y - 6, w + 3, 4);
