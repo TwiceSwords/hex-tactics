@@ -29,6 +29,7 @@
   #dm .sub{color:#c8b98a;font-size:12px;margin-top:9px;border-top:1px solid rgba(255,255,255,.08);padding-top:7px}
   #dm input{font:inherit;font-size:13px;width:52px;background:#1d2016;color:#eadfb4;border:1px solid #6b5d36;border-radius:6px;padding:3px 6px}
   #dm table.st{border-collapse:collapse;margin-top:4px}#dm .st th{font-weight:400;color:#8f9682;font-size:11px;text-align:left;padding:0 4px}#dm .st td{padding:2px 4px 2px 0}#dm .st input{width:48px}
+  #dm .st td.na{color:#5d6354;text-align:center}
   #dm .k{color:#8f9682;font-size:12px;margin-top:6px;line-height:1.5}
   #net{position:fixed;right:12px;top:12px;background:rgba(10,12,8,.8);color:#c9cdbd;padding:10px 12px;border-radius:8px;font-size:13px;border:1px solid rgba(255,255,255,.07);user-select:none}
   #net .seats{display:flex;gap:6px;margin-top:8px}
@@ -51,7 +52,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div class="t">Hex Board · prototype v0.21</div>
+  <div class="t">Hex Board · prototype v0.22</div>
   <div>Hex: <span id="hov">–</span> &nbsp; Selected: <span id="sel">–</span></div>
   <div id="info" style="color:#e2d6a6"></div>
   <div class="k">Drag: pan · Wheel: zoom · Left-click: select · Esc: deselect</div>
@@ -71,8 +72,9 @@
 (() => {
   // ---------- Board settings ----------
   const COLS = 22, ROWS = 22;     // board size in hexes (pointy-top: rows run straight left-right)
-  const S = 40;                   // hex radius (center to corner), px
-  const SQ = 0.6;                 // vertical squash for the angled (isometric-style) view
+  const S = 80;                   // hex radius (center to corner), px — tiles are 4x the area of before
+  const U = 40;                   // unit-sized UI (rings, bars) stays the same size
+  const SQ = 0.68;                // vertical squash for the angled (isometric-style) view
   const SKIRT = 14;               // thickness of the earth edge under the board
   const SQ3 = Math.sqrt(3);
 
@@ -391,7 +393,7 @@
   const teamName = t => game.dm ? (t === 'blue' ? 'Heroes' : 'Dungeon Master') : (t === 'blue' ? 'Blue' : 'Red');
   const UNIT_TYPES = {
     swordsman: { name: 'Swordsman', maxHp: 12, staMax: 2, manaMax: 2, dmg: 3, move: 2, build: buildSwordsman },
-    knight:    { name: 'Knight',    maxHp: 24, staMax: 2, manaMax: 2, dmg: 3, move: 2, build: buildKnight },
+    knight:    { name: 'Knight',    hero: true, maxHp: 24, staMax: 2, manaMax: 2, dmg: 3, move: 2, build: buildKnight },
   };
   const meshCache = {};
   const meshFor = (type, team) => meshCache[type + team] || (meshCache[type + team] = UNIT_TYPES[type].build(TEAM[team]));
@@ -402,7 +404,7 @@
   // game = what both players share; units = the same plus local animation fields
   let game = { seq: 0, turn: 'blue', round: 1, dm: false, battle: false, types: {} };
   const typeMax = type => (game.types[type] && game.types[type].maxHp) || UNIT_TYPES[type].maxHp;   // DM can change a unit type's max HP
-  const hasRes = u => !game.dm || u.team === 'blue';          // in DM mode only heroes use stamina and mana
+  const hasRes = u => !!UNIT_TYPES[u.type].hero;               // only hero units (either side) use stamina and mana
   const typeStat = (type, k) => { const t = game.types[type]; return t && typeof t[k] === 'number' ? t[k] : UNIT_TYPES[type][k]; };
   let units = [], floats = [], selUnit = null, afterIdle = null;
 
@@ -499,7 +501,7 @@
     if (u.dragPos) return u.dragPos;
     const a = center(u.col, u.row); let x = a.x, y = a.y;
     if (u.path) { const b = center(...u.path[0]), e = u.segT * u.segT * (3 - 2 * u.segT); x += (b.x - x) * e; y += (b.y - y) * e; }
-    if (u.atk) { const b = center(u.atk.target.col, u.atk.target.row), L = Math.sin(Math.PI * Math.min(1, u.atk.t)) * 0.42;
+    if (u.atk) { const b = center(u.atk.target.col, u.atk.target.row), L = Math.sin(Math.PI * Math.min(1, u.atk.t)) * 0.24;
       x += (b.x - a.x) * L; y += (b.y - a.y) * L; }
     if (u.flash > 0) x += Math.sin(u.flash * 40) * u.flash * 2.5;
     return { x: x + OX, y: y + OY };
@@ -562,10 +564,10 @@
     for (const { u, p } of list) {
       const bx = p.x, by = p.y, spent = u.team === game.turn && u.attacked;
       ctx.save(); if (u.dying !== null) ctx.globalAlpha = Math.max(0, 1 - u.dying);
-      ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(bx + 2, by + 1, S * 0.5, S * 0.5 * SQ, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(bx + 2, by + 1, U * 0.5, U * 0.5 * SQ, 0, 0, 7); ctx.fill();
       const tc = TEAM[u.team];
       ctx.strokeStyle = `rgba(${tc[0] + 40},${tc[1] + 40},${tc[2] + 40},${spent ? 0.25 : 0.75})`; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.ellipse(bx, by, S * 0.55, S * 0.55 * SQ, 0, 0, 7); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(bx, by, U * 0.55, U * 0.55 * SQ, 0, 0, 7); ctx.stroke();
       const walk = u.path ? Math.abs(Math.sin(u.segT * Math.PI)) * 2.5 : 0;
       drawMesh(ctx, u.mesh, bx, by - walk + (u.dying || 0) * 6, u.face, t + u.phase, u.flash);
       ctx.restore();
@@ -581,7 +583,7 @@
   }
   // health bar above the head: one segment per HP
   function drawHealth(u, bx, by) {
-    const w = S * 0.95, h = 6, x = bx - w / 2, y = by - 17.6 * CE * K - 22;
+    const w = U * 0.95, h = 6, x = bx - w / 2, y = by - 17.6 * CE * K - 22;
     const hasTurn = u.team === game.turn && u.dying === null && !winner() && !unitDone(u);
     const rows = [['sta', 'staMax', '#4fb35a', 'rgba(79,179,90,0.28)'], ['mana', 'manaMax', '#4a7fe0', 'rgba(74,127,224,0.28)']].filter(b => u[b[1]] > 0 && hasRes(u));
     const rh = 5, total = h + (rows.length ? 2 + rows.length * rh : 0);
@@ -847,12 +849,12 @@
         <div class="row"><span class="lbl">Heroes</span>${pb('knight', 'blue', 'Knight')}${pb('swordsman', 'blue', 'Swordsman')}</div>
         <div class="row"><span class="lbl">Enemies</span>${pb('swordsman', 'red', 'Swordsman')}${pb('knight', 'red', 'Knight')}</div>
         <div class="row"><button data-act="heal">❤ Heal all heroes</button></div>
-        <div class="sub">Unit types · values for new units (stamina &amp; mana: heroes only)</div>
+        <div class="sub">Unit types · values for new units (stamina &amp; mana: hero units only)</div>
         <table class="st"><tr><th></th><th>HP</th><th>Stamina</th><th>Mana</th></tr>
         ${['knight', 'swordsman'].map(ty => `<tr><td>${UNIT_TYPES[ty].name}</td>
           <td><input type="number" min="1" max="999" data-type="${ty}" value="${typeMax(ty)}"></td>
-          <td><input type="number" min="0" max="99" data-type="${ty}" data-stat="staMax" value="${typeStat(ty, 'staMax')}"></td>
-          <td><input type="number" min="0" max="99" data-type="${ty}" data-stat="manaMax" value="${typeStat(ty, 'manaMax')}"></td></tr>`).join('')}</table>
+          ${UNIT_TYPES[ty].hero ? `<td><input type="number" min="0" max="99" data-type="${ty}" data-stat="staMax" value="${typeStat(ty, 'staMax')}"></td>
+          <td><input type="number" min="0" max="99" data-type="${ty}" data-stat="manaMax" value="${typeStat(ty, 'manaMax')}"></td>` : '<td class="na">–</td><td class="na">–</td>'}</tr>`).join('')}</table>
         ${selUnit ? `<div class="sub">Selected: ${teamName(selUnit.team)} ${selUnit.name}</div>
         <table class="st"><tr><th></th><th>Current</th><th>Max</th></tr>
           <tr><td>HP</td><td><input type="number" min="1" max="999" data-unit="hp" value="${selUnit.hp}"></td><td><input type="number" min="1" max="999" data-unit="max" value="${selUnit.maxHp}"></td></tr>
@@ -1007,7 +1009,7 @@
   cv.addEventListener('pointerleave', () => { if (!down && hover) { hover = null; hovEl.textContent = '–'; } });
   cv.addEventListener('wheel', e => {
     e.preventDefault();
-    const nz = Math.min(3, Math.max(0.35, z * Math.exp(-e.deltaY * 0.0015)));
+    const nz = Math.min(3, Math.max(0.18, z * Math.exp(-e.deltaY * 0.0015)));
     off.x = e.clientX - (e.clientX - off.x) * (nz / z); off.y = e.clientY - (e.clientY - off.y) * (nz / z);
     z = nz;
   }, { passive: false });
