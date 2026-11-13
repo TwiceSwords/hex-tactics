@@ -63,7 +63,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div class="t">Hex Board · prototype v0.32</div>
+  <div class="t">Hex Board · prototype v0.33</div>
   <div>Hex: <span id="hov">–</span> &nbsp; Selected: <span id="sel">–</span></div>
   <div id="info" style="color:#e2d6a6"></div>
   <div class="k">Drag / WASD: move camera · Wheel: zoom · Left-click: select · Esc: deselect</div>
@@ -565,6 +565,36 @@
     return m;
   }
 
+  // Assassin hero: dark leathers, deep hood with a face mask, team sash and scarf, a dagger in each hand
+  function buildAssassin(team) {
+    const m = { v: [], f: [] }, BLK = [40, 38, 42], DBLK = [26, 24, 28], LTH = [70, 54, 40], SASH = team.map(c => c * 0.8 + 20), HOOD = [34, 32, 38],
+          BLADE = [205, 210, 218];
+    for (const sx of [-1, 1]) {
+      part(m, boxG(1.05, 3.1, 1.7), DBLK, { p: [sx * 0.72, 0, 0.15] });                           // soft boots
+      part(m, boxG(0.95, 4.0, 1.05), BLK, { p: [sx * 0.72, 3.0, 0] });
+      part(m, boxG(1.1, 0.4, 1.15), LTH, { p: [sx * 0.72, 4.6, 0] });                             // leg wraps
+    }
+    part(m, boxG(2.8, 2.4, 1.9, 0.95, 0.95), BLK, { p: [0, 6.5, 0] });
+    part(m, boxG(2.8, 4.6, 1.8, 1.12, 1), LTH, { p: [0, 8.8, 0] });                              // leather vest
+    part(m, boxG(3.0, 0.75, 2.0), SASH, { p: [0, 8.5, 0] });                                      // team sash
+    part(m, boxG(0.7, 2.4, 0.2), SASH, { r: [0.1, 0, 0.15], p: [0.9, 6.4, 1.0], bias: 2 });        // sash tail
+    part(m, boxG(0.45, 5.8, 0.14), DBLK, { r: [0, 0, -0.7], p: [-0.3, 8.6, 0.95], bias: 2 });      // knife belt
+    for (const dy of [0.9, 2.1]) part(m, boxG(0.5, 0.8, 0.3), [150, 150, 160], { r: [0, 0, -0.7], p: [-0.4 + dy * 0.5, 9.0 + dy * 0.75, 1.02], bias: 3 });
+    part(m, boxG(3.6, 6.4, 0.25, 0.75, 1), DBLK, { r: [0.12, 0, 0], p: [0, 6.6, -1.1] });         // short cape
+    part(m, boxG(0.85, 0.8, 0.85), C.SKIN, { p: [0, 13.4, 0] });
+    part(m, boxG(1.4, 1.85, 1.55), C.SKIN, { p: [0, 14.0, 0.05] });
+    part(m, boxG(1.5, 1.0, 1.0), SASH, { p: [0, 13.75, 0.4] });                                   // face mask
+    part(m, boxG(2.0, 2.4, 2.1, 0.7, 0.8), HOOD, { p: [0, 13.9, -0.25] });                        // hood
+    part(m, boxG(0.8, 1.1, 0.8, 0.1, 0.2), HOOD, { r: [-0.8, 0, 0], p: [0, 16.0, -0.9] });
+    part(m, boxG(3.9, 1.4, 2.5, 0.65, 0.85), HOOD, { p: [0, 12.0, -0.1] });                       // shoulder mantle
+    const rH = arm(m, [1.85, 12.6, 0.1], [-0.6, 0, -0.25], [-1.25, 0, 0.1], LTH, BLK);
+    const lH = arm(m, [-1.85, 12.6, 0.1], [-0.3, 0, 0.35], [-1.55, 0, 0.2], LTH, BLK);
+    for (const H of [rH, lH]) {                                                                    // reverse-grip daggers
+      part(m, boxG(0.5, 0.35, 0.9), C.GOLD, { p: add(H, [0, -0.6, 0.35]) });
+      part(m, boxG(0.32, 0.25, 2.9, 1, 0.1), BLADE, { p: add(H, [0, -0.6, 2.25]) });
+    }
+    return m;
+  }
   // Mage hero: long team robe, wide-brim pointed hat, white beard, staff with a glowing orb
   function buildMage(team) {
     const m = { v: [], f: [] }, ROBE = team.map(c => c * 0.62 + 14), DROBE = team.map(c => c * 0.38 + 8), HAT = team.map(c => c * 0.45 + 12),
@@ -670,6 +700,7 @@
   const UNIT_TYPES = {
     swordsman:   { name: 'Swordsman',    maxHp: 14, dmg: 3, move: 2, h: 17.6, build: buildSwordsman },
     knight:      { name: 'Paladin',      maxHp: 12, dmg: 3, move: 2, h: 18.4, hero: true, staMax: 0, manaMax: 4, hpCap: 40, build: buildKnight },
+    assassin:    { name: 'Assassin',     maxHp: 12, dmg: 4, move: 3, h: 17.4, hero: true, staMax: 0, manaMax: 4, hpCap: 20, build: buildAssassin },
     mage:        { name: 'Mage',         maxHp: 12, dmg: 2, move: 2, h: 19.6, hero: true, staMax: 0, manaMax: 4, hpCap: 20, ranged: 'arc', range: 5, magic: true, build: buildMage },
     ranger:      { name: 'Ranger',       maxHp: 12, dmg: 3, move: 2, h: 17.8, hero: true, staMax: 0, manaMax: 4, hpCap: 20, ranged: 'arc', range: 5, noMoveShoot: true, build: buildRanger },
     spearman:    { name: 'Spearman',     maxHp: 12, dmg: 3, move: 2, h: 17.6, antiCav: 1, build: buildSpearman },
@@ -719,14 +750,14 @@
         ...(u.cards ? { cards: u.cards } : {}), ...(u.tauntR ? { tauntR: u.tauntR } : {}), ...(u.guard ? { guard: u.guard } : {}),
         ...(u.dots && u.dots.length ? { dots: u.dots } : {}), ...(u.skillUsed ? { skillUsed: true } : {}),
         ...(u.raining ? { raining: true } : {}), ...(u.watch ? { watch: u.watch } : {}), ...(u.rain && u.rain.length ? { rain: u.rain } : {}),
-        ...(u.slows && u.slows.length ? { slows: u.slows } : {}), ...(u.slowNow ? { slowNow: u.slowNow } : {}), ...(u.manaBought ? { manaBought: u.manaBought } : {}) })), points: game.points };
+        ...(u.slows && u.slows.length ? { slows: u.slows } : {}), ...(u.slowNow ? { slowNow: u.slowNow } : {}), ...(u.manaBought ? { manaBought: u.manaBought } : {}), ...(u.invis ? { invis: u.invis } : {}), ...(u.ambush ? { ambush: u.ambush } : {}) })), points: game.points };
   }
   function applyState(st) {                       // snap to a shared state (keeps smooth facing/HP bars)
     const old = new Map(units.map(u => [u.id, u]));
     units = st.units.map(s => { const o = old.get(s.id);
       if (!o || o.type !== (UNIT_TYPES[s.type] ? s.type : 'swordsman') || o.team !== s.team) return runtimeUnit(s);
       if (typeof s.face === 'number') o.want = s.face;          // keep facing in sync with the shared game
-      Object.assign(o, { col: s.col, row: s.row, hp: s.hp, maxHp: s.maxHp || o.maxHp, sta: s.sta ?? o.sta, staMax: s.staMax ?? o.staMax, mana: s.mana ?? o.mana, manaMax: s.manaMax ?? o.manaMax, moved: s.moved, attacked: s.attacked, stun: s.stun || 0, stunActive: !!s.stunActive, mark: s.mark || null, cards: s.cards || (T(o).hero ? emptyCards() : null), tauntR: s.tauntR || 0, guard: s.guard || null, dots: s.dots || [], skillUsed: !!s.skillUsed, raining: !!s.raining, watch: s.watch || null, rain: s.rain || null, slows: s.slows || null, slowNow: s.slowNow || null, manaBought: s.manaBought || 0, wait: 0, watchHit: null, noTurn: false, path: null, atk: null, dying: null, dragPos: null, push: false, fast: false });
+      Object.assign(o, { col: s.col, row: s.row, hp: s.hp, maxHp: s.maxHp || o.maxHp, sta: s.sta ?? o.sta, staMax: s.staMax ?? o.staMax, mana: s.mana ?? o.mana, manaMax: s.manaMax ?? o.manaMax, moved: s.moved, attacked: s.attacked, stun: s.stun || 0, stunActive: !!s.stunActive, mark: s.mark || null, cards: s.cards || (T(o).hero ? emptyCards() : null), tauntR: s.tauntR || 0, guard: s.guard || null, dots: s.dots || [], skillUsed: !!s.skillUsed, raining: !!s.raining, watch: s.watch || null, rain: s.rain || null, slows: s.slows || null, slowNow: s.slowNow || null, manaBought: s.manaBought || 0, invis: s.invis || null, ambush: s.ambush || 0, wait: 0, watchHit: null, noTurn: false, path: null, atk: null, dying: null, dragPos: null, push: false, fast: false });
       return o; });
     game = { seq: st.seq, turn: st.turn, round: st.round, dm: !!st.dm, battle: !!st.battle, types: (st.types && typeof st.types === 'object') ? st.types : {},
       points: { blue: 0, red: 0, ...(st.points && typeof st.points === 'object' ? st.points : {}) }, water: Array.isArray(st.water) ? st.water : [] };
@@ -808,6 +839,17 @@
   // Overwatch: a ranger shoots every enemy that moves through her cone (once per move), pausing it for the shot
   function overwatchCheck(u, h) {
     if (u.push || u.pull || u.dying !== null || !u.watchHit) return;
+    for (const w of units) if (w.invis && w.team !== u.team && w.dying === null && w.hp > 0 && hexDist(h, [w.col, w.row]) <= 1) {
+      const L = w.invis.lvl; breakInvis(w);
+      if (L >= 5 && !w.atk) {                            // Vanish Lv 5: the assassin strikes whoever found him
+        u.wait = (u.wait || 0) + 1; faceToward(w, u); floatOn(w, 'AMBUSH!', '#ff6a8a', 18, 17);
+        w.atk = { target: u, t: 0, hit: false, onHit: () => {
+          const alive = u.hp > 0; dealDamage(u, 4, { melee: true, src: w });
+          if (alive && u.hp <= 0 && hasPassive(w, 'bloodthirst')) w.mana = w.manaMax;
+          u.wait -= 1; if (u.hp <= 0) { u.path = null; u.then = null; } } };
+      }
+    }
+    if (u.invis) return;
     for (const w of units) if (w.watch && w.team !== u.team && w.dying === null && w.hp > 0 && !u.watchHit.has(w.id) && coneTiles(w).has(key(...h))) {
       u.watchHit.add(w.id); u.wait = (u.wait || 0) + 1;
       const dmg = CARDS.overwatch.dmg(w.watch.lvl);
@@ -992,12 +1034,51 @@
     applyDot(t, Math.max(dmg, old ? old.dmg : 0), Math.max(turns, old ? old.turns : 0), 'burn');
     floatOn(t, '🔥 BURNING', '#ffb050', 18, 15);
   }
-  const canCastCard = (u, c) => c && c.id === 'blink' && c.lvl >= 4 ? !u.stunActive && !u.watch : canSkillNow(u);
+  const canCastCard = (u, c) => c && c.id === 'vanish' && u.invis ? false : c && c.id === 'blink' && c.lvl >= 4 ? !u.stunActive && !u.watch : canSkillNow(u);
+  // Assassin cards
+  Object.assign(CARDS, {
+    backstab:    { kind: 'passive', name: 'Backstab', text: () => 'Hits from behind: ×2 from the two back-side tiles, ×3 from right behind (counts for his skills too).' },
+    bloodthirst: { kind: 'passive', name: 'Bloodthirst', text: () => 'Killing an enemy refills his mana to full.' },
+    flurry:      { kind: 'passive', name: 'Flurry', text: () => 'He can use a skill, a basic attack and move in the same turn, in any order.' },
+    eviscerate:  { kind: 'skill', name: 'Eviscerate', cost: () => 3, dmg: l => 2 + 2 * l, target: 'enemy', range: () => 1,
+      text: l => `Strike an adjacent enemy for ${2 + 2 * l} damage.` },
+    shadowstep:  { kind: 'skill', name: 'Shadowstep', cost: () => 4, dmg: l => l + 1, target: 'unit', range: () => 5,
+      text: l => `Teleport onto the tile right behind any unit within 5 (it must be empty). An enemy takes ${l + 1} damage; a friend takes none.` },
+    vanish:      { kind: 'skill', name: 'Vanish', cost: () => 2, bonus: l => l - 1, target: 'self', range: () => 0,
+      text: l => `Turn invisible: move 2, enemies can't see or target him. Costs 1 mana each later turn (no mana regen). Breaks when he attacks, runs out of mana, or an enemy steps next to him.${l >= 2 ? ` His next attack after it breaks gets +${l - 1} damage.` : ''}${l >= 5 ? ' Whoever reveals him gets hit for 4 on the spot.' : ''}` },
+  });
+  HERO_CARDS.assassin = { passive: ['backstab', 'bloodthirst', 'flurry'], skill: ['eviscerate', 'shadowstep', 'vanish'] };
+  const combo = u => hasPassive(u, 'quickdraw') || hasPassive(u, 'flurry');
+  const hiddenFromMe = u => !!u.invis && mode === 'online' && mySeat !== u.team;
+  function facingDir(u) {                                    // nearest of the 6 hex directions to where the unit faces
+    const a = center(u.col, u.row); let best = 0, bd = 9;
+    for (let d = 0; d < 6; d++) { const b = center(...step([u.col, u.row], d)); let x = Math.abs(Math.atan2(b.x - a.x, (b.y - a.y) / SQ) - u.want); x = x % (Math.PI * 2); x = Math.min(x, Math.PI * 2 - x); if (x < bd) { bd = x; best = d; } }
+    return best;
+  }
+  const behindTile = t => step([t.col, t.row], (facingDir(t) + 3) % 6);
+  function backMult(t, from) {                               // ×3 right behind, ×2 from the two back-side tiles
+    if (hexDist(from, [t.col, t.row]) !== 1) return 1;
+    const fd = facingDir(t);
+    for (let d = 0; d < 6; d++) { const h = step([t.col, t.row], d); if (h[0] === from[0] && h[1] === from[1]) { const rel = (d - fd + 6) % 6; return rel === 3 ? 3 : rel === 2 || rel === 4 ? 2 : 1; } }
+    return 1;
+  }
+  function breakInvis(u) {
+    if (!u.invis) return; const L = u.invis.lvl; u.invis = null;
+    u.ambush = CARDS.vanish.bonus(L); floatOn(u, 'REVEALED', '#d9c2ff', 0, 16);
+  }
+  function assassinHit(u, t, base) {                         // ambush bonus, backstab multiplier, bloodthirst
+    const bonus = u.ambush || 0; u.ambush = 0;
+    const mult = hasPassive(u, 'backstab') ? backMult(t, [u.col, u.row]) : 1;
+    if (mult > 1) floatOn(t, mult === 3 ? 'BACKSTAB ×3' : 'BACKSTAB ×2', '#ff6a8a', 18, 16);
+    const wasAlive = t.hp > 0, r = dealDamage(t, (base + bonus) * mult, { melee: true, src: u });
+    if (wasAlive && t.hp <= 0 && t.team !== u.team && hasPassive(u, 'bloodthirst') && u.mana < u.manaMax) { u.mana = u.manaMax; floatOn(u, 'MANA FULL', '#8fb8ff', 0, 15); }
+    return r;
+  }
   const HP_PER_POINT = 2, MANA_CAP = 10;
   const baseDmg = u => hasPassive(u, 'siphon') ? 1 : u.dmg + (hasPassive(u, 'keeneye') ? 2 : 0);
   const noMoveShoot = u => !!T(u).noMoveShoot && !hasPassive(u, 'skirmisher');
-  const moveOf = u => u.slowNow === 'root' ? 0 : u.slowNow === 'half' ? Math.max(1, Math.floor(u.move / 2)) : u.move;
-  const canSkillNow = u => !!T(u).hero && (!u.skillUsed || u.raining) && !(u.attacked && !hasPassive(u, 'quickdraw') && !u.raining) && !u.watch && !u.stunActive;
+  const moveOf = u => { const m = u.invis ? Math.min(u.move, 2) : u.move; return u.slowNow === 'root' ? 0 : u.slowNow === 'half' ? Math.max(1, Math.floor(m / 2)) : m; };
+  const canSkillNow = u => !!T(u).hero && (!u.skillUsed || u.raining) && !(u.attacked && !combo(u) && !u.raining) && !u.watch && !u.stunActive;
   const canShootNow = u => !u.attacked && !u.watch && !u.stunActive && !(noMoveShoot(u) && u.moved);
   const canMoveNow = u => !u.moved && !u.watch && !u.stunActive && moveOf(u) > 0;
   // hero: can still do anything at all this turn? (strict: only count a shot/skill that has something to aim at)
@@ -1077,7 +1158,10 @@
       for (const d of u.dots) { const amt = steadfast(u, Math.max(0, d.dmg - (d.red || 0))); hitUnit(u, amt); d.turns -= 1; }
       u.dots = u.dots.filter(d => d.turns > 0);
     }
-    for (const u of units) if (u.team === team && T(u).hero && u.dying === null) u.mana = Math.min(u.manaMax || 0, (u.mana || 0) + 1);
+    for (const u of units) if (u.team === team && T(u).hero && u.dying === null) {
+      if (u.invis) { if ((u.mana || 0) >= 1) u.mana -= 1; else breakInvis(u); }   // staying invisible: 1 mana a turn, no regen
+      else u.mana = Math.min(u.manaMax || 0, (u.mana || 0) + 1);
+    }
     const mine = new Set(units.filter(u => u.team === team).map(u => u.id));
     for (const u of units) {
       if (u.team === team) { u.tauntR = 0; u.skillUsed = false; u.raining = false; u.watch = null; u.slowNow = u.slows && u.slows.length ? u.slows.shift() : null; }
@@ -1105,9 +1189,9 @@
       const card = CARDS[a.skill], c = u.cards && u.cards.skills.find(k => k && k.id === a.skill), L = c ? c.lvl : 1;
       const tgt = a.target && units.find(x => x.id === a.target && x.dying === null);
       const was = { attacked: u.attacked, skillUsed: u.skillUsed };
-      u.mana = Math.max(0, (u.mana || 0) - card.cost(L)); if (!hasPassive(u, 'quickdraw')) u.attacked = true; u.skillUsed = true;
+      u.mana = Math.max(0, (u.mana || 0) - card.cost(L)); if (!combo(u)) u.attacked = true; u.skillUsed = true;
       if (a.skill === 'blink' && L >= 4) Object.assign(u, was);     // Blink Lv 4+: costs only mana
-      if (mageSkill(u, a, card, L, tgt)) return;   // the hero's action this turn (Quick Draw keeps the shot); may still move
+      if (mageSkill(u, a, card, L, tgt) || assassinSkill(u, a, card, L, tgt)) return;   // the hero's action this turn (Quick Draw keeps the shot); may still move
       if (rangerSkill(u, a, card, L, tgt)) return;
       if (a.skill === 'smite' || a.skill === 'bash') {
         if (!tgt) return; faceToward(u, tgt);
@@ -1154,8 +1238,9 @@
     moveUnit(u, path, () => {
       if (a.type === 'attack') {
         const ts = (a.targets || [a.target]).map(id => units.find(x => x.id === id)).filter(t => t && t.dying === null);
-        if (ts.length) { faceToward(u, ts[0]); u.atk = { target: ts[0], t: 0, hit: false, onHit: () => ts.forEach(t => dealDamage(t, meleeDmg(u, t), { melee: true, src: u })) }; }
-        u.attacked = u.moved = true;
+        if (ts.length && u.type === 'assassin') { breakInvis(u); faceToward(u, ts[0]); u.atk = { target: ts[0], t: 0, hit: false, onHit: () => assassinHit(u, ts[0], u.dmg) }; }
+        else if (ts.length) { faceToward(u, ts[0]); u.atk = { target: ts[0], t: 0, hit: false, onHit: () => ts.forEach(t => dealDamage(t, meleeDmg(u, t), { melee: true, src: u })) }; }
+        u.attacked = true; if (!hasPassive(u, 'flurry')) u.moved = true;
       } else if (a.type === 'shoot') {                 // archers & horse archers: arcing arrow
         const t = units.find(x => x.id === a.target);
         if (t && t.dying === null && ty.magic) {
@@ -1200,6 +1285,30 @@
         const m = tileAt([a.col, a.row]); addFloat(m.x, m.y - 30, 'Target marked', '#ffb08a', 14);
       }
     });
+  }
+  // Assassin skills (return true when handled)
+  function assassinSkill(u, a, card, L, tgt) {
+    const sk = a.skill;
+    if (sk === 'eviscerate') {
+      if (!tgt) return true; breakInvis(u); faceToward(u, tgt);
+      u.atk = { target: tgt, t: 0, hit: false, onHit: () => assassinHit(u, tgt, card.dmg(L)) };
+      return true;
+    }
+    if (sk === 'shadowstep') {                          // appear right behind the target
+      if (!tgt) return true; const dest = behindTile(tgt), foe = tgt.team !== u.team;
+      if (foe) breakInvis(u);
+      const p0 = upos(u); effects.push({ x: p0.x, y: p0.y, t: 0, color: '150,110,220', r: 40 });
+      u.col = dest[0]; u.row = dest[1]; if (u === selUnit) sel = [u.col, u.row]; faceToward(u, tgt);
+      const p1 = upos(u); effects.push({ x: p1.x, y: p1.y, t: 0, color: '150,110,220', r: 40 });
+      u.watchHit = new Set(); overwatchCheck(u, [u.col, u.row]); u.watchHit = null;
+      if (foe) u.atk = { target: tgt, t: 0, hit: false, onHit: () => assassinHit(u, tgt, card.dmg(L)) };
+      return true;
+    }
+    if (sk === 'vanish') {
+      u.invis = { lvl: L }; const p = upos(u); effects.push({ x: p.x, y: p.y, t: 0, color: '150,110,220', r: 50 });
+      floatOn(u, 'VANISHED', '#d9c2ff', 0, 16); return true;
+    }
+    return false;
   }
   // Mage skills (return true when handled)
   function mageSkill(u, a, card, L, tgt) {
@@ -1375,8 +1484,9 @@
   function drawUnits(t) {
     const list = units.map(u => ({ u, p: upos(u) })).sort((a, b) => a.p.y - b.p.y);
     for (const { u, p } of list) {
+      if (hiddenFromMe(u)) continue;
       const bx = p.x, by = p.y, spent = u.team === game.turn && u.attacked;
-      ctx.save(); if (u.dying !== null) ctx.globalAlpha = Math.max(0, 1 - u.dying);
+      ctx.save(); if (u.dying !== null) ctx.globalAlpha = Math.max(0, 1 - u.dying); else if (u.invis) ctx.globalAlpha = 0.32 + 0.08 * Math.sin(t * 4);
       ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(bx + 2, by + 1, U * 0.5, U * 0.5 * SQ, 0, 0, 7); ctx.fill();
       const tc = TEAM[u.team];
       ctx.strokeStyle = `rgba(${tc[0] + 40},${tc[1] + 40},${tc[2] + 40},${spent ? 0.25 : 0.75})`; ctx.lineWidth = 2;
@@ -1400,7 +1510,7 @@
       }
       ctx.restore();
     }
-    for (const { u, p } of list) { ctx.save(); if (u.dying !== null) ctx.globalAlpha = Math.max(0, 1 - u.dying); drawHealth(u, p.x, p.y); ctx.restore(); }
+    for (const { u, p } of list) { if (hiddenFromMe(u)) continue; ctx.save(); if (u.dying !== null) ctx.globalAlpha = Math.max(0, 1 - u.dying); drawHealth(u, p.x, p.y); ctx.restore(); }
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     for (const f of floats) {
       const pop = 1 + 0.6 * Math.max(0, 1 - f.t * 7), a = Math.max(0, 1 - Math.max(0, f.t - 0.6) / 0.4);
@@ -1571,7 +1681,8 @@
     }
     if (ty.ranged === 'mark' && !u.moved && hexDist(here, hover) <= ty.range && !(hexDist(here, hover) === 1 && !tgt)) { drawCrosshair(hover, 'rgba(255,150,110,0.7)', 1, t); return; }
     if (ty.magic && hasPassive(u, 'mender') && tgt && tgt.team === u.team && tgt !== u && hexDist(here, hover) <= ty.range && canShootNow(u)) { outlineHex(hover, 'rgba(120,255,160,0.95)', 4); label(tgt, `+${Math.min(3, tgt.maxHp - tgt.hp)}`, '#9dffb4'); return; }
-    if (!tgt || tgt.team === u.team) return;
+    if (!tgt || tgt.team === u.team || hiddenFromMe(tgt)) return;
+    if (u.type === 'assassin' && hexDist(here, hover) === 1 && canCommand(u) && !u.attacked) { const m = hasPassive(u, 'backstab') ? backMult(tgt, here) : 1; label(tgt, `-${(u.dmg + (u.ambush || 0)) * m}${m > 1 ? ` (×${m})` : ''}`); return; }
     if (ty.magic && hasPassive(u, 'mender') && !T(tgt).undead) return;
     if (ty.ranged === 'arc' && hexDist(here, hover) <= ty.range && canShootNow(u)) { outlineHex(hover, 'rgba(255,70,50,0.95)', 4); label(tgt, `-${ty.magic ? baseDmg(u) : rangedDmg(baseDmg(u), tgt)}`); return; }
     if (ty.charge && !u.moved && moveOf(u) > 0 && ld && ld.n >= 4 && ld.n <= ty.charge) {
@@ -1630,6 +1741,16 @@
       return;
     }
     if (armed.skill === 'blink') { for (const k of areaAround(here, card.range(L))) { const hh = k.split(',').map(Number); if (!unitAt(hh) && !blockedTile(hh)) { tintHex(hh, 'rgba(160,200,255,0.18)'); } } if (hover && !unitAt(hover) && hexDist(here, hover) <= card.range(L)) outlineHex(hover, 'rgba(170,210,255,0.95)', 4); return; }
+    if (armed.skill === 'shadowstep') {
+      drawZone(areaAround(here, card.range(L)), 'rgba(150,110,220,0.07)', 'rgba(170,130,240,0.85)', false);
+      for (const o of units) if (o !== u && o.dying === null && !hiddenFromMe(o) && hexDist(here, [o.col, o.row]) <= card.range(L)) {
+        const d = behindTile(o), oc = unitAt(d); if (!onBoard(d) || blockedTile(d) || (oc && oc !== u)) continue;
+        outlineHex([o.col, o.row], o.team === u.team ? 'rgba(255,215,110,0.8)' : 'rgba(255,70,50,0.85)', 3);
+        if (hover && hover[0] === o.col && hover[1] === o.row) { tintHex(d, 'rgba(170,130,240,0.4)'); outlineHex(d, 'rgba(190,150,255,0.95)', 4);
+          if (o.team !== u.team) label(o, `-${(card.dmg(L) + (u.ambush || 0)) * (hasPassive(u, 'backstab') ? 3 : 1)}`); }
+      }
+      return;
+    }
     if (armed.skill === 'mheal') { drawZone(areaAround(here, card.range(L)), 'rgba(110,255,150,0.08)', 'rgba(130,255,160,0.9)', false); const o = hover && liveUnitAt(hover); if (o && hexDist(here, hover) <= card.range(L)) { outlineHex(hover, 'rgba(130,255,160,0.95)', 4); label(o, T(o).undead ? `-${card.heal(L) * 2}` : `+${Math.min(card.heal(L), o.maxHp - o.hp)}`, '#9dffb4'); } return; }
     if (armed.skill === 'drive' || armed.skill === 'firebolt') {
       for (let d = 0; d < 6; d++) { const f = firstInLine(here, d, card.range(L)); for (const h of lineTiles(here, d, f ? hexDist(here, f.tile) : card.range(L))) { if (blockedTile(h)) break; tintHex(h, 'rgba(120,210,255,0.12)'); } if (f) outlineHex(f.tile, 'rgba(255,70,50,0.95)', 4); }
@@ -1684,7 +1805,7 @@
       ctx.strokeStyle = 'rgba(235,235,220,0.45)'; ctx.lineWidth = 1.5 / Math.max(z, 0.6); ctx.stroke();
     }
     const hu = unitAt(hover);
-    if (selUnit && hu && hu.team !== selUnit.team && !busy() && canCommand(selUnit) && !selUnit.attacked && !['line', 'pierce', 'mark'].includes(T(selUnit).ranged)) {
+    if (selUnit && hu && hu.team !== selUnit.team && !hiddenFromMe(hu) && !busy() && canCommand(selUnit) && !selUnit.attacked && !['line', 'pierce', 'mark'].includes(T(selUnit).ranged)) {
       ctx.beginPath(); hexPath(hu.col, hu.row, ctx);
       ctx.fillStyle = 'rgba(200,50,40,0.18)'; ctx.fill();
       ctx.strokeStyle = 'rgba(230,80,60,0.9)'; ctx.lineWidth = 2 / Math.max(z, 0.6); ctx.stroke();
@@ -1892,6 +2013,8 @@
     if (ty.fragile) t.push('2× from missiles');
     if (noMoveShoot(u)) t.push("can't move & shoot");
     if (u.watch) t.push('OVERWATCH');
+    if (u.invis) t.push('INVISIBLE');
+    if (u.ambush) t.push(`next attack +${u.ambush}`);
     if (u.slowNow) t.push(u.slowNow === 'root' ? 'PINNED (no movement)' : `CRIPPLED (move ${moveOf(u)})`);
     if (u.slows && u.slows.length) t.push(`crippled for ${u.slows.length} more turn${u.slows.length > 1 ? 's' : ''}`);
     if (ty.push) t.push('Push back');
@@ -2171,7 +2294,7 @@
         } else if (h) toast('That tile is taken');
       } else {
         sel = (h && sel && h[0] === sel[0] && h[1] === sel[1]) ? null : h;
-        selUnit = unitAt(sel) || null; refreshUI();
+        selUnit = unitAt(sel) || null; if (selUnit && hiddenFromMe(selUnit)) selUnit = null; refreshUI();
       }
     }
     down = null; dragging = false; cv.classList.remove('drag');
@@ -2205,7 +2328,7 @@
   cv.addEventListener('contextmenu', e => {
     if (!selUnit || busy()) return;
     const h = pick(e.clientX, e.clientY); if (!h) return;
-    const u = selUnit, ty = T(u), tgt = liveUnitAt(h), here = [u.col, u.row], dist = hexDist(here, h);
+    const u = selUnit, ty = T(u), tgt0 = liveUnitAt(h), tgt = tgt0 && tgt0.invis && tgt0.team !== u.team ? null : tgt0, here = [u.col, u.row], dist = hexDist(here, h);
     const hint = (txt, hh) => { const m = center(...hh); addFloat(m.x + OX, m.y + OY - 20, txt, '#cfc9b4', 14); };
     const go = a => { a.rng = Math.floor(Math.random() * 4e9); play(a, () => { commit(a); if (a.skill === 'rain' && armed && armed.skill === 'rain' && (u.mana || 0) < 1) { armed = null; refreshUI(); } }); };
     if (!canCommand(u)) { hint(winner() ? 'Game over' : isStunned(u) ? 'Stunned' : u.team !== game.turn || !myTurn() ? 'Not your turn' : 'Already acted', here); return; }
@@ -2237,6 +2360,14 @@
         if (unitAt(h) || blockedTile(h)) { hint('Pick an empty tile', h); return; }
         if (dist > card.range(L) || dist === 0) { hint('Out of range', h); return; }
         go({ type: 'skill', id: u.id, skill: 'blink', col: h[0], row: h[1] }); armed = null; return;
+      }
+      if (armed.skill === 'shadowstep') {
+        if (!tgt || tgt === u) { hint('Pick a unit', h); return; }
+        if (dist > card.range(L)) { hint('Out of range', h); return; }
+        const dest = behindTile(tgt), o = unitAt(dest);
+        if (!onBoard(dest) || blockedTile(dest) || (o && o !== u)) { hint('The tile behind it is taken', h); return; }
+        if (tgt.team !== u.team && lockedOut(here, tgt)) { hint('Taunted: must target the Paladin', h); return; }
+        go({ type: 'skill', id: u.id, skill: 'shadowstep', target: tgt.id }); armed = null; return;
       }
       if (armed.skill === 'mheal') {
         if (!tgt) { hint('Pick a unit', h); return; }
