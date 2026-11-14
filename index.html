@@ -1271,9 +1271,9 @@
     }
   }
   // Challenge: an enemy standing inside a paladin's taunt area may only target that paladin
-  function tauntLock(u, from) {
-    return units.find(p => p.team !== u.team && p.tauntR > 0 && p.dying === null && p.hp > 0 && hexDist(from, [p.col, p.row]) <= p.tauntR) || null;
-  }
+  function tauntSet(u, from) { return units.filter(p => p.team !== u.team && p.tauntR > 0 && p.dying === null && p.hp > 0 && hexDist(from, [p.col, p.row]) <= p.tauntR); }
+  function tauntLock(u, from) { return tauntSet(u, from)[0] || null; }
+  const tauntOk = (u, from, target) => { const ps = tauntSet(u, from); return !ps.length || (!!target && ps.includes(target)); };   // inside one or more Challenge fields: only those Paladins
 
   // play one action (your own click AND the other player's replay), then call done when everything settles
   const ACTIONS = ['move', 'attack', 'shoot', 'bolt', 'pierce', 'charge', 'mark', 'skill'];
@@ -2488,7 +2488,7 @@
     const hint = (txt, hh) => { const m = center(...hh); addFloat(m.x + OX, m.y + OY - 20, txt, '#cfc9b4', 14); };
     const go = a => { a.rng = Math.floor(Math.random() * 4e9); play(a, () => { commit(a); if (a.skill === 'rain') refreshUI(); }); };   // Arrow Rain stays aimed until Esc, even out of mana, so a right-click never turns into a shot
     if (!canCommand(u)) { hint(winner() ? 'Game over' : isStunned(u) ? 'Stunned' : u.team !== game.turn || !myTurn() ? 'Not your turn' : 'Already acted', here); return; }
-    const lock = tauntLock(u, here), lockedOut = (from, target) => { const p = tauntLock(u, from); return p && p !== target; };
+    const lock = tauntLock(u, here), lockedOut = (from, target) => !tauntOk(u, from, target);
     if (armed && armed.id === u.id) {                         // casting a skill card
       const card = CARDS[armed.skill], L = armed.lvl;
       if ((u.mana || 0) < card.cost(L)) { if (armed.skill === 'rain' && u.raining) { hint('No mana left · Esc to finish', h); return; } hint(`Needs ${card.cost(L)} mana`, here); armed = null; refreshUI(); return; }
@@ -2509,7 +2509,7 @@
       }
       if (armed.skill === 'fireball' || armed.skill === 'lightning') {
         if (dist > card.range(L)) { hint('Out of range', h); return; }
-        if (lock && !(h[0] === lock.col && h[1] === lock.row)) { hint('Taunted: must target the Paladin', h); return; }
+        if (lock && lockedOut(here, liveUnitAt(h))) { hint('Taunted: must target the Paladin', h); return; }
         go({ type: 'skill', id: u.id, skill: armed.skill, col: h[0], row: h[1] }); armed = null; return;
       }
       if (armed.skill === 'blink') {
@@ -2590,7 +2590,7 @@
       if (!tgt && dist === 1) { moveTo(); return; }
       if (u.moved) { hint('Moved: can\'t fire this turn', here); return; }
       if (dist > ty.range) { hint('Out of range', h); return; }
-      if (lock && !(h[0] === lock.col && h[1] === lock.row)) { hint('Taunted: must target the Paladin', h); return; }
+      if (lock && lockedOut(here, liveUnitAt(h))) { hint('Taunted: must target the Paladin', h); return; }
       go({ type: 'mark', id: u.id, col: h[0], row: h[1] }); return;
     }
     if (ty.ranged === 'line' || ty.ranged === 'pierce') {    // crossbow & ballista: shoot along a straight line
@@ -2600,7 +2600,7 @@
       if (ld.n > ty.range) { hint('Out of range', h); return; }
       if (u.moved) { hint('Moved: can\'t shoot this turn', here); return; }
       if (ty.ranged === 'line' && !firstInLine(here, ld.d, ty.range)) { hint('Blocked', h); return; }
-      { const f = firstInLine(here, ld.d, ty.range); if (lock && (!f || f.unit !== lock)) { hint('Taunted: must target the Paladin', h); return; } }
+      { const f = firstInLine(here, ld.d, ty.range); if (lock && (!f || lockedOut(here, f.unit))) { hint('Taunted: must target the Paladin', h); return; } }
       go({ type: ty.ranged === 'line' ? 'bolt' : 'pierce', id: u.id, dir: ld.d }); return;
     }
     if (ty.ranged === 'arc') {                               // archers & horse archers
@@ -2641,7 +2641,7 @@
     if (tgt.team === u.team) return;
     if (u.attacked) { hint('Already attacked', here); return; }
     if (ty.charge && !u.moved && moveOf(u) > 0) { const ld = lineDir(here, h); if (ld && ld.n >= 4 && ld.n <= ty.charge) {
-      const f = firstInLine(here, ld.d, ty.charge); if (lock && (!f || f.unit !== lock)) { hint('Taunted: must target the Paladin', h); return; }
+      const f = firstInLine(here, ld.d, ty.charge); if (lock && (!f || lockedOut(here, f.unit))) { hint('Taunted: must target the Paladin', h); return; }
       go({ type: 'charge', id: u.id, dir: ld.d }); return; } }
     const r = ty.reach || 1; let path = [], from = here;
     if (dist > r || lockedOut(here, tgt)) {
