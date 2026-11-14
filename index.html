@@ -1320,7 +1320,8 @@
       return;
     }
     if (a.type === 'charge' && moveOf(u) <= 0) { afterIdle = null; done(); return; }
-    if (a.type === 'charge') {                         // lancer: gallop in a straight line, hit the first unit met
+    if (a.type === 'charge') {                         // lancer: (walk first, then) gallop in a straight line, hit the first unit met
+      const gallop = () => {
       const tiles = lineTiles(here(), a.dir, ty.charge), lane = []; let tgt = null;
       for (const h of tiles) { if (blockedTile(h)) break; const o = liveUnitAt(h); if (o) { tgt = o; break; } lane.push(h); }
       u.moved = true; u.attacked = true; u.fast = true; faceDir(u, a.dir);
@@ -1333,6 +1334,8 @@
           if (stunned) stunUnit(u); } }; }
         else if (stunned) stunUnit(u);
       });
+      };
+      if (path.length) moveUnit(u, path, gallop); else gallop();
       return;
     }
     moveUnit(u, path, () => {
@@ -1384,9 +1387,10 @@
         fire('pierce', from, { x: end.x, y: end.y - 9 * CE * K * 0.5 }, () => {
           const alive = hits.filter(h => h.o.hp > 0 && !h.blocked);
           if (!alive.length) return;
-          const far = alive[alive.length - 1].o, nt = step([far.col, far.row], a.dir), o = onBoard(nt) && liveUnitAt(nt);
-          if (blockedTile(nt) || (o && !alive.some(h => h.o === o))) alive.forEach(h => stunUnit(h.o));
-          else for (let k = alive.length - 1; k >= 0; k--) pushUnit(alive[k].o, step([alive[k].o.col, alive[k].o.row], a.dir));
+          const leaving = new Set(), taken = new Set();        // each unit hit on its own: pushed back if it can be, stunned if not (farthest first)
+          for (let k = alive.length - 1; k >= 0; k--) { const o = alive[k].o, nt = step([o.col, o.row], a.dir), occ = onBoard(nt) && liveUnitAt(nt);
+            if (onBoard(nt) && !blockedTile(nt) && !taken.has(key(...nt)) && (!occ || leaving.has(occ))) { leaving.add(o); taken.add(key(...nt)); pushUnit(o, nt); }
+            else { stunUnit(o); taken.add(key(o.col, o.row)); } }
         }, hits.map(h => ({ f: (h.i + 1) / (endI + 1), fn: () => { h.blocked = dealDamage(h.o, h.dmg, { src: u, projectile: true }).blocked; } })));
       } else if (a.type === 'mark') {                  // trebuchet: mark a tile, the boulder lands at the start of its next turn
         faceTile(u, [a.col, a.row]); u.mark = [a.col, a.row]; u.attacked = u.moved = true;
@@ -1832,7 +1836,7 @@
     if (u.type === 'assassin' && hexDist(here, hover) === 1 && canCommand(u) && !u.attacked) { const m = hasPassive(u, 'backstab') ? backMult(tgt, here) : 1; label(tgt, `-${(u.dmg + (u.ambush || 0)) * m}${m > 1 ? ` (×${m})` : ''}`); return; }
     if (ty.magic && hasPassive(u, 'mender') && !T(tgt).undead) return;
     if (ty.ranged === 'arc' && hexDist(here, hover) <= ty.range && canShootNow(u)) { outlineHex(hover, 'rgba(255,70,50,0.95)', 4); label(tgt, `-${ty.magic ? baseDmg(u) : rangedDmg(baseDmg(u), tgt)}`); return; }
-    if (ty.charge && !u.moved && moveOf(u) > 0 && ld && ld.n >= 4 && ld.n <= ty.charge) {
+    if (ty.charge && moveOf(u) > 0 && ld && ld.n >= 4 && ld.n <= ty.charge && (() => { const f = firstInLine(here, ld.d, ty.charge); return f && f.unit === tgt; })()) {
       const lane = []; let first = null;
       for (const h of lineTiles(here, ld.d, ty.charge)) { const o = liveUnitAt(h); if (o) { first = o; break; } lane.push(h); }
       lane.forEach(h => tintHex(h, 'rgba(240,170,60,0.22)'));
@@ -2644,9 +2648,16 @@
     if (!tgt) { moveTo(); return; }                          // melee units
     if (tgt.team === u.team) return;
     if (u.attacked) { hint('Already attacked', here); return; }
-    if (ty.charge && !u.moved && moveOf(u) > 0) { const ld = lineDir(here, h); if (ld && ld.n >= 4 && ld.n <= ty.charge) {
-      const f = firstInLine(here, ld.d, ty.charge); if (lock && (!f || lockedOut(here, f.unit))) { hint('Taunted: must target the Paladin', h); return; }
-      go({ type: 'charge', id: u.id, dir: ld.d }); return; } }
+    if (ty.charge && moveOf(u) > 0 && !(dist <= (ty.reach || 1) && !lockedOut(here, tgt))) {   // lancer: charge only when the target is the first thing in the lane (can walk to a charging spot first); right next to it: a normal hit
+      const chargeDir = from => { const ld = lineDir(from, h); if (!ld || ld.n < 4 || ld.n > ty.charge) return null;
+        const f = firstInLine(from, ld.d, ty.charge); return f && f.unit === tgt && !lockedOut(from, tgt) ? ld.d : null; };
+      const d0 = chargeDir(here); if (d0 !== null) { go({ type: 'charge', id: u.id, dir: d0 }); return; }
+      if (!u.moved) { const b = reach(u); let best = null;
+        for (const [k, dd] of b.dist) { if (!dd) continue; const t = k.split(',').map(Number); if (unitAt(t) && !hiddenFromMe(unitAt(t))) continue;
+          const dir = chargeDir(t); if (dir !== null && (!best || dd < best.d)) best = { t, d: dd, dir }; }
+        if (best) { go({ type: 'charge', id: u.id, dir: best.dir, path: pathTo(b, best.t) }); return; } }
+      const ld = lineDir(here, h); if (u.moved && ld && ld.n >= 4 && ld.n <= ty.charge) { hint('Charge blocked: someone is in the way', h); return; }
+    }
     const r = ty.reach || 1; let path = [], from = here;
     if (dist > r || lockedOut(here, tgt)) {
       if (u.moved) { hint(lockedOut(here, tgt) ? 'Taunted: must target the Paladin' : 'Already moved', here); return; }
