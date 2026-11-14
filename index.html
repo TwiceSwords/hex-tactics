@@ -2485,12 +2485,12 @@
     const h = pick(e.clientX, e.clientY); if (!h) return;
     const u = selUnit, ty = T(u), tgt0 = liveUnitAt(h), tgt = tgt0 && tgt0.invis && tgt0.team !== u.team ? null : tgt0, here = [u.col, u.row], dist = hexDist(here, h);
     const hint = (txt, hh) => { const m = center(...hh); addFloat(m.x + OX, m.y + OY - 20, txt, '#cfc9b4', 14); };
-    const go = a => { a.rng = Math.floor(Math.random() * 4e9); play(a, () => { commit(a); if (a.skill === 'rain' && armed && armed.skill === 'rain' && (u.mana || 0) < 1) { armed = null; refreshUI(); } }); };
+    const go = a => { a.rng = Math.floor(Math.random() * 4e9); play(a, () => { commit(a); if (a.skill === 'rain') refreshUI(); }); };   // Arrow Rain stays aimed until Esc, even out of mana, so a right-click never turns into a shot
     if (!canCommand(u)) { hint(winner() ? 'Game over' : isStunned(u) ? 'Stunned' : u.team !== game.turn || !myTurn() ? 'Not your turn' : 'Already acted', here); return; }
     const lock = tauntLock(u, here), lockedOut = (from, target) => { const p = tauntLock(u, from); return p && p !== target; };
     if (armed && armed.id === u.id) {                         // casting a skill card
       const card = CARDS[armed.skill], L = armed.lvl;
-      if ((u.mana || 0) < card.cost(L)) { hint(`Needs ${card.cost(L)} mana`, here); armed = null; refreshUI(); return; }
+      if ((u.mana || 0) < card.cost(L)) { if (armed.skill === 'rain' && u.raining) { hint('No mana left · Esc to finish', h); return; } hint(`Needs ${card.cost(L)} mana`, here); armed = null; refreshUI(); return; }
       if (card.target === 'self') { go({ type: 'skill', id: u.id, skill: armed.skill }); armed = null; return; }
       if (armed.skill === 'drive') {
         const ld = lineDir(here, h); if (!ld) { hint('Not in a straight line', h); return; }
