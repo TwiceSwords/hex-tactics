@@ -763,7 +763,7 @@
     lancer:      { name: 'Lancer',       maxHp: 18, dmg: 3, move: 4, h: 20.5, mounted: true, charge: 6, build: buildLancer },
     horsearcher: { name: 'Horse archer', maxHp: 9,  dmg: 2, move: 4, h: 20.5, mounted: true, ranged: 'arc', range: 5, build: buildHorseArcher },
     trebuchet:   { name: 'Trebuchet',    maxHp: 6,  dmg: 20, move: 1, h: 16, ranged: 'mark', range: 8, noMoveShoot: true, build: buildTrebuchet },
-    ballista:    { name: 'Ballista',     maxHp: 6,  dmg: 12, move: 1, h: 9, ranged: 'pierce', range: 8, noMoveShoot: true, build: buildBallista },
+    ballista:    { name: 'Ballista',     maxHp: 4,  dmg: 12, move: 1, h: 9, ranged: 'pierce', range: 7, noMoveShoot: true, build: buildBallista },
   };
   const T = u => UNIT_TYPES[u.type] || UNIT_TYPES.swordsman;
 
@@ -1276,6 +1276,7 @@
   const tauntOk = (u, from, target) => { const ps = tauntSet(u, from); return !ps.length || (!!target && ps.includes(target)); };   // inside one or more Challenge fields: only those Paladins
 
   // play one action (your own click AND the other player's replay), then call done when everything settles
+  const pierceJammed = (u, dir) => T(u).ranged === 'pierce' && !!liveUnitAt(step([u.col, u.row], dir));   // ballista: a unit right in front blocks that shot
   const ACTIONS = ['move', 'attack', 'shoot', 'bolt', 'pierce', 'charge', 'mark', 'skill'];
   function play(a, done) {
     seedRng(a.rng || 7);
@@ -1370,6 +1371,7 @@
           if (blockedTile(nt)) stunUnit(t); else if (o) { stunUnit(t); stunUnit(o); } else pushUnit(t, nt);
         });
       } else if (a.type === 'pierce') {                // ballista: bolt passes through, -2 damage per unit hit, pushes all
+        if (pierceJammed(u, a.dir)) return;
         faceDir(u, a.dir); u.attacked = u.moved = true;
         const tiles = lineTiles(here(), a.dir, ty.range); let dmg = u.dmg, endI = tiles.length - 1; const hits = [];
         for (let i = 0; i < tiles.length; i++) {
@@ -1800,6 +1802,7 @@
     const u = selUnit; if (!u || !hover || !canCommand(u) || u.attacked || u.watch) return;
     const ty = T(u), here = [u.col, u.row], tgt = liveUnitAt(hover), ld = lineDir(here, hover);
     if ((ty.ranged === 'line' || ty.ranged === 'pierce') && ld && ld.n <= ty.range && !u.moved && (tgt || !reach(u).dist.has(key(...hover)))) {
+      if (pierceJammed(u, ld.d)) { outlineHex(step(here, ld.d), 'rgba(160,160,160,0.9)', 3); return; }
       if (ty.ranged === 'line') {
         const f = firstInLine(here, ld.d, ty.range); if (!f) return;
         for (const h of lineTiles(here, ld.d, hexDist(here, f.tile))) tintHex(h, 'rgba(245,105,75,0.16)');
@@ -2600,6 +2603,7 @@
       if (ld.n > ty.range) { hint('Out of range', h); return; }
       if (u.moved) { hint('Moved: can\'t shoot this turn', here); return; }
       if (ty.ranged === 'line' && !firstInLine(here, ld.d, ty.range)) { hint('Blocked', h); return; }
+      if (pierceJammed(u, ld.d)) { hint('Too close: a unit right in front blocks the ballista', h); return; }
       { const f = firstInLine(here, ld.d, ty.range); if (lock && (!f || lockedOut(here, f.unit))) { hint('Taunted: must target the Paladin', h); return; } }
       go({ type: ty.ranged === 'line' ? 'bolt' : 'pierce', id: u.id, dir: ld.d }); return;
     }
