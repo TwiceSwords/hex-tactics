@@ -946,6 +946,23 @@
   const isStunned = u => u.stunActive || u.stun > 0;
   function pushUnit(u, h) { u.path = [h]; u.segT = 0; u.push = true; u.then = null; }
   // anti-charge: lancer charging a spear/halberd, or passing within 1 (spear) / 2 (halberd) tiles of one, gets stunned
+  const hostile = (a, b) => a !== b; const canStep = () => true;   // (Hex Tactics: two sides, no walls)
+  // a lancer's charge along a lane: stops at rocks, walls and the first unit; spears (1) and halberds (2) brace against it the moment it enters their range
+  function chargePlan(u, from, dir) {
+    const ty = T(u), lane = []; let tgt = null, prev = from;
+    for (const h of lineTiles(from, dir, ty.charge)) { if (blockedTile(h) || !canStep(prev, h, u)) break; const o = liveUnitAt(h); if (o) { tgt = o; break; } lane.push(h); prev = h; }
+    const bracers = units.filter(o => hostile(o.team, u.team) && o.dying === null && o.hp > 0 && antiCavOf(o));
+    let stop = -1, bracer = null;
+    for (let i = 0; i < lane.length && stop < 0; i++) { const b = bracers.find(o => hexDist(lane[i], [o.col, o.row]) <= antiCavOf(o)); if (b) { stop = i; bracer = b; } }
+    if (!bracer && tgt && !lane.length && bracers.includes(tgt)) bracer = tgt;
+    const walk = stop >= 0 ? lane.slice(0, stop + 1) : lane, end = walk.length ? walk[walk.length - 1] : from;
+    const reached = !!tgt && (stop < 0 || stop === lane.length - 1) && hexDist(end, [tgt.col, tgt.row]) === 1;
+    return { lane, walk, tgt, bracer, braced: !!bracer, reached };
+  }
+  function braceStun(u) {                             // countered: the lancer loses its next turn
+    if (!u || T(u).noCC || u.dying !== null || u.hp <= 0) return;
+    u.stun = 1; u.moved = true; u.attacked = true; const p = upos(u); addFloat(p.x - 14, p.y - headY(u) - 62, 'STUNNED!', '#ffd23a', 16);
+  }
   function antiCharge(u, tiles, tgt) {
     if (tgt && antiCavOf(tgt) && tgt.team !== u.team) return true;
     const foes = units.filter(o => o.team !== u.team && o.dying === null && o.hp > 0 && antiCavOf(o));
@@ -1322,17 +1339,16 @@
     if (a.type === 'charge' && moveOf(u) <= 0) { afterIdle = null; done(); return; }
     if (a.type === 'charge') {                         // lancer: (walk first, then) gallop in a straight line, hit the first unit met
       const gallop = () => {
-      const tiles = lineTiles(here(), a.dir, ty.charge), lane = []; let tgt = null;
-      for (const h of tiles) { if (blockedTile(h)) break; const o = liveUnitAt(h); if (o) { tgt = o; break; } lane.push(h); }
+      const P = chargePlan(u, here(), a.dir), tgt = P.tgt;
       u.moved = true; u.attacked = true; u.fast = true; faceDir(u, a.dir);
-      moveUnit(u, lane, () => {
+      moveUnit(u, P.walk, () => {
         u.fast = false;
-        const stunned = antiCharge(u, lane.length ? lane : [here()], tgt);
-        if (tgt) { faceToward(u, tgt); u.atk = { target: tgt, t: 0, hit: false, onHit: () => {
-          if (antiCavOf(tgt)) dealDamage(tgt, u.dmg, { melee: true, src: u });     // spears & halberds brace: only base damage, no stun
-          else { const r = dealDamage(tgt, u.dmg * 2, { melee: true, src: u }); if (!r.blocked) stunUnit(tgt); }
-          if (stunned) stunUnit(u); } }; }
-        else if (stunned) stunUnit(u);
+        const counter = () => { const b = P.bracer; if (!b || b.dying !== null || b.hp <= 0) return;   // the spear / halberd strikes back: the charge is broken
+          faceToward(b, u); floatOn(b, 'BRACED!', '#ffd27a', 0, 17); b.atk = { target: u, t: 0, hit: false, onHit: () => braceStun(u) }; };
+        if (P.reached) { faceToward(u, tgt); u.atk = { target: tgt, t: 0, hit: false, onHit: () => {
+          if (P.braced) { dealDamage(tgt, u.dmg, { melee: true, src: u }); counter(); }           // braced: only its base damage, no stun, and the lancer is countered
+          else { const r = dealDamage(tgt, u.dmg * 2, { melee: true, src: u }); if (!r.blocked) stunUnit(tgt); } } }; }
+        else if (P.braced) counter();                     // stopped inside the brace range before reaching anyone
       });
       };
       if (path.length) moveUnit(u, path, gallop); else gallop();
@@ -1836,12 +1852,12 @@
     if (u.type === 'assassin' && hexDist(here, hover) === 1 && canCommand(u) && !u.attacked) { const m = hasPassive(u, 'backstab') ? backMult(tgt, here) : 1; label(tgt, `-${(u.dmg + (u.ambush || 0)) * m}${m > 1 ? ` (×${m})` : ''}`); return; }
     if (ty.magic && hasPassive(u, 'mender') && !T(tgt).undead) return;
     if (ty.ranged === 'arc' && hexDist(here, hover) <= ty.range && canShootNow(u)) { outlineHex(hover, 'rgba(255,70,50,0.95)', 4); label(tgt, `-${ty.magic ? baseDmg(u) : rangedDmg(baseDmg(u), tgt)}`); return; }
-    if (ty.charge && moveOf(u) > 0 && ld && ld.n >= 4 && ld.n <= ty.charge && (() => { const f = firstInLine(here, ld.d, ty.charge); return f && f.unit === tgt; })()) {
-      const lane = []; let first = null;
-      for (const h of lineTiles(here, ld.d, ty.charge)) { const o = liveUnitAt(h); if (o) { first = o; break; } lane.push(h); }
-      lane.forEach(h => tintHex(h, 'rgba(240,170,60,0.22)'));
-      if (first) { outlineHex([first.col, first.row], 'rgba(255,70,50,0.95)', 4); label(first, antiCavOf(first) ? `CHARGE -${u.dmg} (braced)` : `CHARGE -${u.dmg * 2} · STUN`, first.team === u.team ? '#ffd27a' : '#ffb4a0'); }
-      if (antiCharge(u, lane.length ? lane : [here], first)) label(u, '⚠ spears: lancer stunned', '#ffd27a');
+    if (ty.charge && moveOf(u) > 0 && ld && ld.n >= 4 && ld.n <= ty.charge && chargePlan(u, here, ld.d).tgt === tgt) {
+      const P = chargePlan(u, here, ld.d), first = P.tgt;
+      P.walk.forEach(h => tintHex(h, 'rgba(240,170,60,0.22)'));
+      if (P.reached) { outlineHex([first.col, first.row], 'rgba(255,70,50,0.95)', 4); label(first, P.braced ? `CHARGE -${u.dmg} (braced)` : `CHARGE -${u.dmg * 2} · STUN`, first.team === u.team ? '#ffd27a' : '#ffb4a0'); }
+      if (P.braced) { if (!P.reached && P.walk.length) outlineHex(P.walk[P.walk.length - 1], 'rgba(255,210,90,0.95)', 3); outlineHex([P.bracer.col, P.bracer.row], 'rgba(255,210,90,0.95)', 3);
+        label(u, P.reached ? '⚠ braced: lancer stunned after the hit' : '⚠ braced: stopped and stunned before the hit', '#ffd27a'); }
       return;
     }
     if (!ty.ranged) {
@@ -2650,7 +2666,7 @@
     if (u.attacked) { hint('Already attacked', here); return; }
     if (ty.charge && moveOf(u) > 0 && !(dist <= (ty.reach || 1) && !lockedOut(here, tgt))) {   // lancer: charge only when the target is the first thing in the lane (can walk to a charging spot first); right next to it: a normal hit
       const chargeDir = from => { const ld = lineDir(from, h); if (!ld || ld.n < 4 || ld.n > ty.charge) return null;
-        const f = firstInLine(from, ld.d, ty.charge); return f && f.unit === tgt && !lockedOut(from, tgt) ? ld.d : null; };
+        return chargePlan(u, from, ld.d).tgt === tgt && !lockedOut(from, tgt) ? ld.d : null; };
       const d0 = chargeDir(here); if (d0 !== null) { go({ type: 'charge', id: u.id, dir: d0 }); return; }
       if (!u.moved) { const b = reach(u); let best = null;
         for (const [k, dd] of b.dist) { if (!dd) continue; const t = k.split(',').map(Number); if (unitAt(t) && !hiddenFromMe(unitAt(t))) continue;
