@@ -1693,8 +1693,11 @@
     }
     ctx.font = '600 9px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     const ty = hasTurn ? y - 7 : y - 2;
-    ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillText(`${u.hp}/${u.maxHp}`, bx + 0.6, ty + 0.6);
-    ctx.fillStyle = '#e9e4cf'; ctx.fillText(`${u.hp}/${u.maxHp}`, bx, ty);
+    { const hpT = `${u.hp}/${u.maxHp}`, heal = hasPassive(u, 'mender'), dT = `${heal ? '✚' : '⚔'}${heal ? 3 : baseDmg(u)}`;   // health, then the damage of a basic attack (a healer: how much it heals)
+      ctx.textAlign = 'left'; const wH = ctx.measureText(hpT).width, wD = ctx.measureText(dT).width, gap = 4, x0 = bx - (wH + gap + wD) / 2;
+      ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillText(hpT, x0 + 0.6, ty + 0.6); ctx.fillText(dT, x0 + wH + gap + 0.6, ty + 0.6);
+      ctx.fillStyle = '#e9e4cf'; ctx.fillText(hpT, x0, ty);
+      ctx.fillStyle = heal ? '#9fe28f' : '#ffb26b'; ctx.fillText(dT, x0 + wH + gap, ty); ctx.textAlign = 'center'; }
   }
   function turnUnits(dt) {
     for (const u of units) {
